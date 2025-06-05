@@ -104,7 +104,19 @@ const osThreadAttr_t BSEVerify_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for AppsCalibrate */
+osThreadId_t AppsCalibrateHandle;
+const osThreadAttr_t AppsCalibrate_attributes = {
+  .name = "AppsCalibrate",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
 /* USER CODE BEGIN PV */
+uint32_t appsRaw1Min = 0;
+uint32_t appsRaw1Max = 0;
+uint32_t appsRaw2Min = 0;
+uint32_t appsRaw2Max = 0;
+
 
 /* USER CODE END PV */
 
@@ -124,6 +136,7 @@ void InverterProcessStart(void *argument);
 void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
 void BSEVerifyStart(void *argument);
+void AppsCalibrateStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -210,6 +223,9 @@ int main(void)
 
   /* creation of BSEVerify */
   BSEVerifyHandle = osThreadNew(BSEVerifyStart, NULL, &BSEVerify_attributes);
+
+  /* creation of AppsCalibrate */
+  AppsCalibrateHandle = osThreadNew(AppsCalibrateStart, NULL, &AppsCalibrate_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -799,10 +815,15 @@ void PlausibilityStart(void *argument)
 void AppsVerifyStart(void *argument)
 {
   /* USER CODE BEGIN AppsVerifyStart */
+
+	TickType_t lastWake = xTaskGetTickCount();
+
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  appsVerifyProcess();
+	  vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(100));
+	  osDelay(1);
   }
   /* USER CODE END AppsVerifyStart */
 }
@@ -823,6 +844,26 @@ void BSEVerifyStart(void *argument)
     osDelay(1);
   }
   /* USER CODE END BSEVerifyStart */
+}
+
+/* USER CODE BEGIN Header_AppsCalibrateStart */
+/**
+* @brief Function implementing the AppsCalibrate thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_AppsCalibrateStart */
+void AppsCalibrateStart(void *argument)
+{
+  /* USER CODE BEGIN AppsCalibrateStart */
+
+	// calibrates apps
+
+
+	// deletes task to ensure single execution
+	vTaskDelete(NULL);
+
+  /* USER CODE END AppsCalibrateStart */
 }
 
 /**
