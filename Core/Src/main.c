@@ -97,13 +97,6 @@ const osThreadAttr_t AppsVerify_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for BSEVerify */
-osThreadId_t BSEVerifyHandle;
-const osThreadAttr_t BSEVerify_attributes = {
-  .name = "BSEVerify",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
 /* Definitions for AppsCalibrate */
 osThreadId_t AppsCalibrateHandle;
 const osThreadAttr_t AppsCalibrate_attributes = {
@@ -135,7 +128,6 @@ static void MX_ADC3_Init(void);
 void InverterProcessStart(void *argument);
 void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
-void BSEVerifyStart(void *argument);
 void AppsCalibrateStart(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -189,7 +181,6 @@ int main(void)
   // hcan1 = high priority, hcan2 = low priority
   HAL_CAN_Start(&hcan1);
   HAL_CAN_Start(&hcan2);
-  VCU_Init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -220,9 +211,6 @@ int main(void)
 
   /* creation of AppsVerify */
   AppsVerifyHandle = osThreadNew(AppsVerifyStart, NULL, &AppsVerify_attributes);
-
-  /* creation of BSEVerify */
-  BSEVerifyHandle = osThreadNew(BSEVerifyStart, NULL, &BSEVerify_attributes);
 
   /* creation of AppsCalibrate */
   AppsCalibrateHandle = osThreadNew(AppsCalibrateStart, NULL, &AppsCalibrate_attributes);
@@ -777,6 +765,7 @@ static void MX_GPIO_Init(void)
 void InverterProcessStart(void *argument)
 {
   /* USER CODE BEGIN 5 */
+  VCU_Init();
   /* Infinite loop */
   for(;;)
   {
@@ -828,24 +817,6 @@ void AppsVerifyStart(void *argument)
   /* USER CODE END AppsVerifyStart */
 }
 
-/* USER CODE BEGIN Header_BSEVerifyStart */
-/**
-* @brief Function implementing the BSEVerify thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_BSEVerifyStart */
-void BSEVerifyStart(void *argument)
-{
-  /* USER CODE BEGIN BSEVerifyStart */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END BSEVerifyStart */
-}
-
 /* USER CODE BEGIN Header_AppsCalibrateStart */
 /**
 * @brief Function implementing the AppsCalibrate thread.
@@ -857,7 +828,8 @@ void AppsCalibrateStart(void *argument)
 {
   /* USER CODE BEGIN AppsCalibrateStart */
 
-	// calibrates apps
+//	 calibrates apps
+//	appsCalibrate();
 
 
 	// deletes task to ensure single execution
