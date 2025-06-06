@@ -38,11 +38,11 @@ float AccelPos() {
 
 	// FIGURE OUT HOW TO CALCULATE PERCENTAGE BASED ON LIMITS
 	// PLACEHOLDER, Unsure if works yet
-	uint32_t app1Range = appsRaw1Max - apps2Min;
-	uint32_t app2Range = appsRaw2Max - apps2Min;
+	uint32_t app1Range = appsRaw1Max - appsRaw1Min;
+	uint32_t app2Range = appsRaw2Max - appsRaw2Min;
 
-	float percent1 = appsRaw1 / apps1Range;
-	float percent2 = appsRaw2 / apps2Range;
+	float percent1 = appsRaw1 / app1Range;
+	float percent2 = appsRaw2 / app2Range;
 
 	float percentAvg = (percent1 + percent2) / 2;
 
