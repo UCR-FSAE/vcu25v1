@@ -27,9 +27,11 @@ static uint8_t vcuActive = 0;
 
 /* External variables --------------------------------------------------------*/
 // hadc1 = apps pot 1
-extern ADC_HandleTypeDef hadc1;  /* ADC handle from main.c */
+extern ADC_HandleTypeDef hadc3;  /* ADC handle from main.c */
 // hcan1 = high priority can line
-extern CAN_HandleTypeDef hcan1;  /* CAN handle from main.c */
+extern CAN_HandleTypeDef hcan2;  /* CAN handle from main.c */
+// pedal input
+extern uint32_t appsConverted;
 
 /* Private function prototypes -----------------------------------------------*/
 static void VCU_ProcessAnalogInputs(void);
@@ -53,7 +55,7 @@ void VCU_Init(void)
   /* Note: Main ADC initialization happens in main.c */
 
   /* Send initial disable message to ensure inverter is off */
-  HAL_ADC_Start(&hadc1);
+  HAL_ADC_Start(&hadc3);
   VCU_DisableInverter();
   VCU_EnableInverter();
 }
@@ -65,10 +67,12 @@ void VCU_Init(void)
 void VCU_Process(void)
 {
   /* Read accelerator pedal position from ADC */
-  if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
-  {
-    acceleratorRaw = HAL_ADC_GetValue(&hadc1);
-  }
+//  HAL_ADC_Start(&hadc3);
+//  if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK)
+//  {
+//	acceleratorRaw = HAL_ADC_GetValue(&hadc3);
+//  }
+
 
   /* In a real system, we would read brake position from another ADC channel */
   /* For now, we simulate no brake press */
@@ -87,28 +91,30 @@ static void VCU_ProcessAnalogInputs(void)
   /* Only process if VCU is active */
   if (!vcuActive)
   {
-    return;
+	return;
   }
 
   /* Check brake pedal status - if pressed, set torque to zero */
   if (brakeRaw > BRAKE_THRESHOLD)
   {
-    torqueCommand = 0;
-    VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
-    return;
+	torqueCommand = 0;
+	VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
+	return;
   }
 
-  /* Filter out noise at very low values */
-  if (acceleratorRaw < ADC_THRESHOLD)
-  {
-    torqueCommand = 0;
-  }
-  else
-  {
-    /* Convert 12-bit ADC value (0-4095) to torque value (0-32767) */
-    /* Apply basic linear mapping for now */
-    torqueCommand = (uint16_t)(((uint32_t)acceleratorRaw * TORQUE_MAX_VALUE) / ADC_MAX_VALUE);
-  }
+//  /* Filter out noise at very low values */
+//  if (acceleratorRaw < ADC_THRESHOLD)
+//  {
+//	torqueCommand = 0;
+//  }
+//  else
+//  {
+	/* Convert 12-bit ADC value (0-4095) to torque value (0-32767) */
+	/* Apply basic linear mapping for now */
+
+//	torqueCommand = (uint16_t)(((uint32_t)acceleratorRaw * TORQUE_MAX_VALUE) / ADC_MAX_VALUE);
+//	  torqueCommand = appsConverted
+//  }
 
   torqueCommand = 75;
   /* Send CAN message with torque command */
@@ -153,15 +159,15 @@ static void VCU_TransmitCANMessage(uint16_t torque, uint8_t direction, uint8_t i
   txData[7] = 0;
 
   /* Send CAN message */
-  if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox) != HAL_OK)
+  if (HAL_CAN_AddTxMessage(&hcan2, &txHeader, txData, &txMailbox) != HAL_OK)
   {
-	  HAL_CAN_AbortTxRequest(&hcan1, txMailbox);
+	  HAL_CAN_AbortTxRequest(&hcan2, txMailbox);
 //	  Error_Handler();
   }
   else {
-	  HAL_GPIO_TogglePin(GPIOB, 7);
+	  HAL_GPIO_TogglePin(GPIOB, 14);
 	  HAL_Delay(10);
-	  HAL_GPIO_TogglePin(GPIOB, 7);
+	  HAL_GPIO_TogglePin(GPIOB, 14);
 	  HAL_Delay(10);
   }
 }
@@ -179,6 +185,10 @@ void VCU_EnableInverter(void)
   VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
 
   /* Visual indication - could toggle an LED here */
+  	  HAL_GPIO_TogglePin(GPIOB, 7);
+  	  HAL_Delay(10);
+  	  HAL_GPIO_TogglePin(GPIOB, 7);
+  	  HAL_Delay(10);
 }
 
 /**

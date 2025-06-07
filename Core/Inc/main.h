@@ -31,7 +31,13 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
+
+
+#include "cmsis_os.h"
 #include "vcu.h"
+#include "appsVerify.h"
+#include "appsCalibrate.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

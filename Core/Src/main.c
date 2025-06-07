@@ -97,14 +97,21 @@ const osThreadAttr_t AppsVerify_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for BSEVerify */
-osThreadId_t BSEVerifyHandle;
-const osThreadAttr_t BSEVerify_attributes = {
-  .name = "BSEVerify",
+/* Definitions for AppsCalibrate */
+osThreadId_t AppsCalibrateHandle;
+const osThreadAttr_t AppsCalibrate_attributes = {
+  .name = "AppsCalibrate",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* USER CODE BEGIN PV */
+uint32_t appsRaw1Min = 0;
+uint32_t appsRaw1Max = 0;
+uint32_t appsRaw2Min = 0;
+uint32_t appsRaw2Max = 0;
+uint32_t appsConverted = 0;
+
+bool pedalFault = 0;
 
 /* USER CODE END PV */
 
@@ -123,7 +130,7 @@ static void MX_ADC3_Init(void);
 void InverterProcessStart(void *argument);
 void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
-void BSEVerifyStart(void *argument);
+void AppsCalibrateStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -176,7 +183,6 @@ int main(void)
   // hcan1 = high priority, hcan2 = low priority
   HAL_CAN_Start(&hcan1);
   HAL_CAN_Start(&hcan2);
-  VCU_Init();
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -208,8 +214,8 @@ int main(void)
   /* creation of AppsVerify */
   AppsVerifyHandle = osThreadNew(AppsVerifyStart, NULL, &AppsVerify_attributes);
 
-  /* creation of BSEVerify */
-  BSEVerifyHandle = osThreadNew(BSEVerifyStart, NULL, &BSEVerify_attributes);
+  /* creation of AppsCalibrate */
+  AppsCalibrateHandle = osThreadNew(AppsCalibrateStart, NULL, &AppsCalibrate_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -419,13 +425,13 @@ static void MX_ADC3_Init(void)
   hadc3.Instance = ADC3;
   hadc3.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc3.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc3.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc3.Init.ScanConvMode = ADC_SCAN_ENABLE;
   hadc3.Init.ContinuousConvMode = DISABLE;
   hadc3.Init.DiscontinuousConvMode = DISABLE;
   hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc3.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc3.Init.NbrOfConversion = 1;
+  hadc3.Init.NbrOfConversion = 2;
   hadc3.Init.DMAContinuousRequests = DISABLE;
   hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc3) != HAL_OK)
@@ -438,6 +444,14 @@ static void MX_ADC3_Init(void)
   sConfig.Channel = ADC_CHANNEL_5;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -761,10 +775,14 @@ static void MX_GPIO_Init(void)
 void InverterProcessStart(void *argument)
 {
   /* USER CODE BEGIN 5 */
+  VCU_Init();
   /* Infinite loop */
   for(;;)
   {
 	  VCU_Process();
+
+
+
 //	  HAL_Delay(10);
 	  osDelay(1);
   }
@@ -799,30 +817,38 @@ void PlausibilityStart(void *argument)
 void AppsVerifyStart(void *argument)
 {
   /* USER CODE BEGIN AppsVerifyStart */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END AppsVerifyStart */
+//	const TickType_t period = pdMS_TO_TICKS(5);      /* 5 ms loop     */
+//	TickType_t lastWake = xTaskGetTickCount();
+
+	/* Infinite loop */
+	for(;;)
+	{
+//		appsVerifyProcess();
+//		vTaskDelayUntil(&lastWake, period);
+		osDelay(1);
+	}
+	/* USER CODE END AppsVerifyStart */
 }
 
-/* USER CODE BEGIN Header_BSEVerifyStart */
+/* USER CODE BEGIN Header_AppsCalibrateStart */
 /**
-* @brief Function implementing the BSEVerify thread.
+* @brief Function implementing the AppsCalibrate thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_BSEVerifyStart */
-void BSEVerifyStart(void *argument)
+/* USER CODE END Header_AppsCalibrateStart */
+void AppsCalibrateStart(void *argument)
 {
-  /* USER CODE BEGIN BSEVerifyStart */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END BSEVerifyStart */
+  /* USER CODE BEGIN AppsCalibrateStart */
+
+//	 calibrates apps
+//	appsCalibrate();
+
+
+	// deletes task to ensure single execution
+	vTaskDelete(NULL);
+
+  /* USER CODE END AppsCalibrateStart */
 }
 
 /**
