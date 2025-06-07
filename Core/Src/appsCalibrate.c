@@ -1,6 +1,7 @@
 
 #include "appsCalibrate.h"
 
+// min and max pot values for calibration
 extern uint32_t appsRaw1Min;
 extern uint32_t appsRaw1Max;
 extern uint32_t appsRaw2Min;

@@ -29,7 +29,9 @@ static uint8_t vcuActive = 0;
 // hadc1 = apps pot 1
 extern ADC_HandleTypeDef hadc3;  /* ADC handle from main.c */
 // hcan1 = high priority can line
-extern CAN_HandleTypeDef hcan1;  /* CAN handle from main.c */
+extern CAN_HandleTypeDef hcan2;  /* CAN handle from main.c */
+// pedal input
+extern uint32_t appsConverted;
 
 /* Private function prototypes -----------------------------------------------*/
 static void VCU_ProcessAnalogInputs(void);
@@ -65,11 +67,12 @@ void VCU_Init(void)
 void VCU_Process(void)
 {
   /* Read accelerator pedal position from ADC */
-  HAL_ADC_Start(&hadc3);
-  if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK)
-  {
-	acceleratorRaw = HAL_ADC_GetValue(&hadc3);
-  }
+//  HAL_ADC_Start(&hadc3);
+//  if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK)
+//  {
+//	acceleratorRaw = HAL_ADC_GetValue(&hadc3);
+//  }
+
 
   /* In a real system, we would read brake position from another ADC channel */
   /* For now, we simulate no brake press */
@@ -99,19 +102,21 @@ static void VCU_ProcessAnalogInputs(void)
 	return;
   }
 
-  /* Filter out noise at very low values */
-  if (acceleratorRaw < ADC_THRESHOLD)
-  {
-	torqueCommand = 0;
-  }
-  else
-  {
+//  /* Filter out noise at very low values */
+//  if (acceleratorRaw < ADC_THRESHOLD)
+//  {
+//	torqueCommand = 0;
+//  }
+//  else
+//  {
 	/* Convert 12-bit ADC value (0-4095) to torque value (0-32767) */
 	/* Apply basic linear mapping for now */
-	torqueCommand = (uint16_t)(((uint32_t)acceleratorRaw * TORQUE_MAX_VALUE) / ADC_MAX_VALUE);
-  }
 
-//  torqueCommand = 75;
+//	torqueCommand = (uint16_t)(((uint32_t)acceleratorRaw * TORQUE_MAX_VALUE) / ADC_MAX_VALUE);
+//	  torqueCommand = appsConverted
+//  }
+
+  torqueCommand = 75;
   /* Send CAN message with torque command */
   VCU_TransmitCANMessage(torqueCommand, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
 }
@@ -154,15 +159,15 @@ static void VCU_TransmitCANMessage(uint16_t torque, uint8_t direction, uint8_t i
   txData[7] = 0;
 
   /* Send CAN message */
-  if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox) != HAL_OK)
+  if (HAL_CAN_AddTxMessage(&hcan2, &txHeader, txData, &txMailbox) != HAL_OK)
   {
-	  HAL_CAN_AbortTxRequest(&hcan1, txMailbox);
+	  HAL_CAN_AbortTxRequest(&hcan2, txMailbox);
 //	  Error_Handler();
   }
   else {
-	  HAL_GPIO_TogglePin(GPIOB, 7);
+	  HAL_GPIO_TogglePin(GPIOB, 14);
 	  HAL_Delay(10);
-	  HAL_GPIO_TogglePin(GPIOB, 7);
+	  HAL_GPIO_TogglePin(GPIOB, 14);
 	  HAL_Delay(10);
   }
 }
@@ -180,6 +185,10 @@ void VCU_EnableInverter(void)
   VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
 
   /* Visual indication - could toggle an LED here */
+  	  HAL_GPIO_TogglePin(GPIOB, 7);
+  	  HAL_Delay(10);
+  	  HAL_GPIO_TogglePin(GPIOB, 7);
+  	  HAL_Delay(10);
 }
 
 /**
