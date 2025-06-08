@@ -12,6 +12,9 @@
 float pedal_table[NUM_POINTS] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
 float torque_table[NUM_POINTS] = {0.0f, 3.0f, 6.0f, 9.0f, 12.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
 
+extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc3;
+
 extern uint32_t appsRaw1Min;
 extern uint32_t appsRaw1Max;
 extern uint32_t appsRaw2Min;
