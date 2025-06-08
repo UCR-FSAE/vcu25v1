@@ -153,8 +153,9 @@ int MapTorque() {
 		// TO BE IMPLEMENTED: DETERMINE HOW TO MAP TORQUE BASED ON PEDAL POSITION
 		// Range of Torque request is 0-60 N*m
 		// how do you want to map 0-60 to 0-1 value of pedal position.
+		float torque = getTorqueFromPedal(accel);
 
 		//PLACEHOLDER Just going to constantly send 5 N*m for now
-		return 5;
+		return torque;
 	}
 }
