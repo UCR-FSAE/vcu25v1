@@ -7,6 +7,11 @@
 
 #include "plausibility.h"
 
+#define NUM_POINTS 5
+
+float pedal_table[NUM_POINTS] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+float torque_table[NUM_POINTS] = {0.0f, 3.0f, 6.0f, 9.0f, 12.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
+
 extern uint32_t appsRaw1Min;
 extern uint32_t appsRaw1Max;
 extern uint32_t appsRaw2Min;
@@ -99,13 +104,41 @@ int PlausibilityCheck(float accel, float brake) {
 }
 
 /*
+ * GetTorqueFromPedal:
+ * takes in the pedal position and maps it to a torque value based on the defined arrays.
+ * Uses linear interpolation to determine values in between array values.
+ */
+
+float getTorqueFromPedal(float pedal_position) {
+    if (pedal_position <= pedal_table[0]) return torque_table[0];
+    if (pedal_position >= pedal_table[NUM_POINTS - 1]) return torque_table[NUM_POINTS - 1];
+
+    for (int i = 0; i < NUM_POINTS - 1; i++) {
+        if (pedal_position >= pedal_table[i] && pedal_position <= pedal_table[i + 1]) {
+            float x0 = pedal_table[i];
+            float x1 = pedal_table[i + 1];
+            float y0 = torque_table[i];
+            float y1 = torque_table[i + 1];
+
+            // Linear interpolation
+            return y0 + (pedal_position - x0) * (y1 - y0) / (x1 - x0);
+        }
+    }
+
+    // Should not reach here
+    return 0.0f;
+}
+
+/*
  * MapTorque:
  * Gets Accelerator and Brake positions
  * Does Plausibility check, if fail, then return value to disable inverter
  * If Pass, Map torque request based on Accelerator Pedal Position and return torque request value
  */
 int MapTorque() {
+	HAL_ADC_Start(&hadc1);
 	HAL_ADC_Start(&hadc3);
+
 
 	float accel = AccelPos();
 	float brake = BrakePos();
