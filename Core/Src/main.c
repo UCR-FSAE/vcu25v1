@@ -823,7 +823,7 @@ void AppsVerifyStart(void *argument)
 	/* Infinite loop */
 	for(;;)
 	{
-//		appsVerifyProcess();
+		appsVerifyProcess();
 //		vTaskDelayUntil(&lastWake, period);
 		osDelay(1);
 	}
@@ -842,7 +842,7 @@ void AppsCalibrateStart(void *argument)
   /* USER CODE BEGIN AppsCalibrateStart */
 
 //	 calibrates apps
-//	appsCalibrate();
+	appsCalibrate();
 
 
 	// deletes task to ensure single execution

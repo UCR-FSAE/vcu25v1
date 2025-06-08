@@ -18,6 +18,7 @@ extern uint32_t appsRaw2Max;
 extern uint32_t appsConverted;
 
 extern bool pedalFault;
+uint32_t adcResults[2];
 
 
 static uint32_t appsRaw1 = 0;
@@ -38,42 +39,64 @@ void appsVerifyProcess(void) {
 	static bool offsetFlag = false;
 	TickType_t  mismatchStart  = 0;
 
-	// read accelerator pedal press for 5 ms
-	if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK) {
-		appsRaw1 = HAL_ADC_GetValue(&hadc3);
-	}
-	else {
-		// throw fault
-	}
-	if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK) {
-		appsRaw2 = HAL_ADC_GetValue(&hadc3);
-	}
-	else {
-		// throw fault
-	}
+    // Start ADC conversion for both channels
+    if (HAL_ADC_Start(&hadc3) != HAL_OK) {
+        // throw fault - ADC start failed
+        pedalFault = true;
+        return;
+    }
 
-	// mapping
-	appsConverted1 = (uint16_t)(((uint32_t)(appsRaw1 - appsRaw1Min) * TORQUE_MAX_VALUE) / (appsRaw1Max - appsRaw1Min));
-	appsConverted2 = (uint16_t)(((uint32_t)(appsRaw2 - appsRaw2Min) * TORQUE_MAX_VALUE) / (appsRaw2Max - appsRaw2Min));
+    // Wait for first conversion
+    if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK) {
+        adcResults[0] = HAL_ADC_GetValue(&hadc3);
+    }
+    else {
+        pedalFault = true;
+        HAL_ADC_Stop(&hadc3);
+        return;
+    }
 
-	// if the values differ by 10% for 100ms, throw fault
-	if (appsConverted1/appsConverted2 >= 1.1 || appsConverted1/appsConverted2 <= 0.9) {
-		if (!offsetFlag) {
-			offsetFlag = true;
-			mismatchStart = xTaskGetTickCount();
-		}
-		// get tick count from first mismatch to 100
-        else if ((xTaskGetTickCount() - mismatchStart) >= pdMS_TO_TICKS(100)) {
-        	pedalFault = true;
+    // Wait for second conversion
+    if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK) {
+        adcResults[1] = HAL_ADC_GetValue(&hadc3);
+    }
+    else {
+        pedalFault = true;
+        HAL_ADC_Stop(&hadc3);
+        return;
+    }
+
+	// Store raw values
+	appsRaw1 = adcResults[0];
+	appsRaw2 = adcResults[1];
+
+    // Prevent division by zero
+    if (appsRaw1Max == appsRaw1Min || appsRaw2Max == appsRaw2Min) {
+        pedalFault = true;
+        return;
+    }
+
+
+    uint32_t diff = (appsConverted1 > appsConverted2) ?
+                    (appsConverted1 - appsConverted2) :
+                    (appsConverted2 - appsConverted1);
+
+    uint32_t threshold = (appsConverted1 + appsConverted2) / 20; // 10% of average
+
+    if (diff > threshold && (appsConverted1 > 0 || appsConverted2 > 0)) {
+        if (!offsetFlag) {
+            offsetFlag = true;
+            mismatchStart = osKernelGetTickCount();  // Use CMSIS-RTOS
         }
-	}
-	else {
-		offsetFlag = false;
-	}
+        else if ((osKernelGetTickCount() - mismatchStart) >= 100) { // 100ms in ticks
+            pedalFault = true;
+        }
+    }
+    else {
+        offsetFlag = false;
+    }
 
-	// calculate the average apps value
-	appsConverted = ( appsConverted1 + appsConverted2 ) / 2;
-
-	return;
+    // Calculate the average apps value
+    appsConverted = (appsConverted1 + appsConverted2) / 2;
 }
 
