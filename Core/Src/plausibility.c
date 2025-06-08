@@ -58,9 +58,32 @@ float AccelPos() {
  */
 float BrakePos() {
 	// TO BE IMPLEMENTED
+	if (HAL_ADC_PollForConversion(&hadc1, 5) == HAL_OK) {
+		appsRaw1 = HAL_ADC_GetValue(&hadc3);
+	}
+	else {
+		// throw fault
+	}
+	if (HAL_ADC_PollForConversion(&hadc1, 6) == HAL_OK) {
+		appsRaw2 = HAL_ADC_GetValue(&hadc3);
+	}
+	else {
+		// throw fault
+	}
+
+	// FIGURE OUT HOW TO CALCULATE PERCENTAGE BASED ON LIMITS
+	// PLACEHOLDER, Unsure if works yet
+	uint32_t app1Range = appsRaw1Max - appsRaw1Min;
+	uint32_t app2Range = appsRaw2Max - appsRaw2Min;
+
+	float percent1 = appsRaw1 / app1Range;
+	float percent2 = appsRaw2 / app2Range;
+
+	float percentAvg = (percent1 + percent2) / 2;
+
 
 	// PLACEHOLDER
-	return 0.5;
+	return percentAvg;
 }
 
 /*
@@ -95,8 +118,10 @@ int MapTorque() {
 	}
 	else {
 		// TO BE IMPLEMENTED: DETERMINE HOW TO MAP TORQUE BASED ON PEDAL POSITION
+		// Range of Torque request is 0-60 N*m
+		// how do you want to map 0-60 to 0-1 value of pedal position.
 
-		//PLACEHOLDER
-		return 10;
+		//PLACEHOLDER Just going to constantly send 5 N*m for now
+		return 5;
 	}
 }
