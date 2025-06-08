@@ -129,7 +129,7 @@ float getTorqueFromPedal(float pedal_position) {
         }
     }
 
-    // Should not reach here
+    // Should not reach here, throw error if you do
     return 0.0f;
 }
 
