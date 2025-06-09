@@ -15,51 +15,57 @@ float torque_table[NUM_POINTS] = {0.0f, 3.0f, 6.0f, 9.0f, 12.0f}; // Purposefull
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc3;
+extern bool inverterFault;
 
-extern uint32_t appsRaw1Min;
-extern uint32_t appsRaw1Max;
-extern uint32_t appsRaw2Min;
-extern uint32_t appsRaw2Max;
 
-static uint32_t appsRaw1 = 0;
-static uint32_t appsRaw2 = 0;
+extern uint32_t brakesRaw1Min;
+extern uint32_t brakesRaw1Max;
+extern uint32_t brakesRaw2Min;
+extern uint32_t brakesRaw2Max;
+extern uint32_t appsConverted;
+extern uint32_t brakesConverted;
+
+//static uint32_t appsRaw1 = 0;
+//static uint32_t appsRaw2 = 0;
 
 /*
  * AccelPos:
  * Get Accelerator Potentiometer values from ADC and determine position percentage
  * NEED TO REFERENCE GLOBAL MIN AND MAX VALUES FOR POTENTIOMETERS, LOOK AT JUSTIN BRANCH
  */
-float AccelPos() {
-	// TO BE IMPLEMENTED
 
-	if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK) {
-		appsRaw1 = HAL_ADC_GetValue(&hadc3);
-	}
-	else {
-		// throw fault
-	}
-	if (HAL_ADC_PollForConversion(&hadc3, 7) == HAL_OK) {
-		appsRaw2 = HAL_ADC_GetValue(&hadc3);
-	}
-	else {
-		// throw fault
-	}
-
-	// FIGURE OUT HOW TO CALCULATE PERCENTAGE BASED ON LIMITS
-	// PLACEHOLDER, Unsure if works yet
-	uint32_t app1Range = appsRaw1Max - appsRaw1Min;
-	uint32_t app2Range = appsRaw2Max - appsRaw2Min;
-
-	float percent1 = appsRaw1 / app1Range;
-	float percent2 = appsRaw2 / app2Range;
-
-	float percentAvg = (percent1 + percent2) / 2;
-
-
-	// PLACEHOLDER
-	return percentAvg;
-
-}
+// this function should not be needed, and should be handled in the appsverify task.
+//float AccelPos() {
+//	// TO BE IMPLEMENTED
+//
+//	if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK) {
+//		appsRaw1 = HAL_ADC_GetValue(&hadc3);
+//	}
+//	else {
+//		// throw fault
+//	}
+//	if (HAL_ADC_PollForConversion(&hadc3, 7) == HAL_OK) {
+//		appsRaw2 = HAL_ADC_GetValue(&hadc3);
+//	}
+//	else {
+//		// throw fault
+//	}
+//
+//	// FIGURE OUT HOW TO CALCULATE PERCENTAGE BASED ON LIMITS
+//	// PLACEHOLDER, Unsure if works yet
+//	uint32_t app1Range = appsRaw1Max - appsRaw1Min;
+//	uint32_t app2Range = appsRaw2Max - appsRaw2Min;
+//
+//	float percent1 = appsRaw1 / app1Range;
+//	float percent2 = appsRaw2 / app2Range;
+//
+//	float percentAvg = (percent1 + percent2) / 2;
+//
+//
+//	// PLACEHOLDER
+//	return percentAvg;
+//
+//}
 
 /*
  * BrakePos:
@@ -68,13 +74,13 @@ float AccelPos() {
 float BrakePos() {
 	// TO BE IMPLEMENTED
 	if (HAL_ADC_PollForConversion(&hadc1, 5) == HAL_OK) {
-		appsRaw1 = HAL_ADC_GetValue(&hadc3);
+		brakesRaw1 = HAL_ADC_GetValue(&hadc1);
 	}
 	else {
 		// throw fault
 	}
 	if (HAL_ADC_PollForConversion(&hadc1, 6) == HAL_OK) {
-		appsRaw2 = HAL_ADC_GetValue(&hadc3);
+		brakesRaw2 = HAL_ADC_GetValue(&hadc1);
 	}
 	else {
 		// throw fault
@@ -82,11 +88,14 @@ float BrakePos() {
 
 	// FIGURE OUT HOW TO CALCULATE PERCENTAGE BASED ON LIMITS
 	// PLACEHOLDER, Unsure if works yet
-	uint32_t app1Range = appsRaw1Max - appsRaw1Min;
-	uint32_t app2Range = appsRaw2Max - appsRaw2Min;
+	uint32_t brakes1Range = brakesRaw1Max - brakesRaw1Min;
+	uint32_t brakes2Range = brakesRaw2Max - brakesRaw2Min;
 
-	float percent1 = appsRaw1 / app1Range;
-	float percent2 = appsRaw2 / app2Range;
+	// not sure if the above is necessary, since we are using a pressure sensor for the brakes. if we need to find the ranges, we can put this in the calibration task which runs first
+
+
+	float percent1 = brakesRaw1 / brakes1Range;
+	float percent2 = brakesRaw2 / brakes2Range;
 
 	float percentAvg = (percent1 + percent2) / 2;
 
@@ -101,10 +110,18 @@ float BrakePos() {
  */
 int PlausibilityCheck(float accel, float brake) {
 
-	if (accel > 0.05 && brake > 0.05)
+	if (accel > 0.05 && brake > 0.05) {
+		// disable the inverter flag
+		inverterFault = 1;
 		return 0;
-	else
+	}
+
+	else {
+		// continue
+		inverterFault = 0;
 		return 1;
+	}
+
 }
 
 /*
@@ -141,10 +158,10 @@ float getTorqueFromPedal(float pedal_position) {
  */
 int MapTorque() {
 	HAL_ADC_Start(&hadc1);
-	HAL_ADC_Start(&hadc3);
+//	HAL_ADC_Start(&hadc3);
 
-
-	float accel = AccelPos();
+	// accell pos shouldn't be needed since appsConverted is calculated in the verify process
+	float accel = appsConverted;
 	float brake = BrakePos();
 
 	int check = PlausibilityCheck(accel, brake);

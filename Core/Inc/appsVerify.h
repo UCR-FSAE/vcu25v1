@@ -13,7 +13,6 @@ extern "C" {
 #define ADC_THRESHOLD     100     /* Noise threshold for ADC */
 
 // function prototypes
-void appsVerifyInit();
 void appsVerifyProcess();
 
 extern ADC_HandleTypeDef hadc3;  /* ADC handle from main.c */

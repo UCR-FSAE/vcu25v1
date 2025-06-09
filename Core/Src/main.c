@@ -23,7 +23,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "vcu.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -80,28 +79,28 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 osThreadId_t InverterProcessHandle;
 const osThreadAttr_t InverterProcess_attributes = {
   .name = "InverterProcess",
-  .stack_size = 128 * 4,
+  .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for Plausibility */
 osThreadId_t PlausibilityHandle;
 const osThreadAttr_t Plausibility_attributes = {
   .name = "Plausibility",
-  .stack_size = 128 * 4,
+  .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for AppsVerify */
 osThreadId_t AppsVerifyHandle;
 const osThreadAttr_t AppsVerify_attributes = {
   .name = "AppsVerify",
-  .stack_size = 128 * 4,
+  .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for AppsCalibrate */
 osThreadId_t AppsCalibrateHandle;
 const osThreadAttr_t AppsCalibrate_attributes = {
   .name = "AppsCalibrate",
-  .stack_size = 128 * 4,
+  .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
 /* USER CODE BEGIN PV */
@@ -111,7 +110,15 @@ uint32_t appsRaw2Min = 0;
 uint32_t appsRaw2Max = 0;
 uint32_t appsConverted = 0;
 
+uint32_t brakesRaw1Min = 0;
+uint32_t brakesRaw1Max = 0;
+uint32_t brakesRaw2Min = 0;
+uint32_t brakesRaw2Max = 0;
+uint32_t brakesConverted = 0;
+
+
 bool pedalFault = 0;
+bool inverterFault = 0;
 
 /* USER CODE END PV */
 
@@ -800,9 +807,11 @@ void PlausibilityStart(void *argument)
 {
   /* USER CODE BEGIN PlausibilityStart */
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
+  for(;;) {
+
+	  MapTorque();
+
+	  osDelay(1);
     // TESTINNGGG HELLLOOOO
   }
   /* USER CODE END PlausibilityStart */
@@ -828,7 +837,7 @@ void AppsVerifyStart(void *argument)
 //		vTaskDelayUntil(&lastWake, period);
 		osDelay(1);
 	}
-	/* USER CODE END AppsVerifyStart */
+  /* USER CODE END AppsVerifyStart */
 }
 
 /* USER CODE BEGIN Header_AppsCalibrateStart */
@@ -842,9 +851,8 @@ void AppsCalibrateStart(void *argument)
 {
   /* USER CODE BEGIN AppsCalibrateStart */
 
-//	 calibrates apps
+	//calibrates apps
 	appsCalibrate();
-
 
 	// deletes task to ensure single execution
 	vTaskDelete(NULL);

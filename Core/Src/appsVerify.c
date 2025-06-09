@@ -23,17 +23,8 @@ uint32_t adcResults[2];
 
 static uint32_t appsRaw1 = 0;
 static uint32_t appsRaw2 = 0;
-static uint32_t appsConverted1;
-static uint32_t appsConverted2;
-
-void appsVerifyInit(void) {
-	// start adc
-	HAL_ADC_Start(&hadc3);
-
-	// calibrate apps sensors
-
-}
-
+static float appsConverted1;
+static float appsConverted2;
 
 void appsVerifyProcess(void) {
 	static bool offsetFlag = false;
@@ -75,6 +66,11 @@ void appsVerifyProcess(void) {
         pedalFault = true;
         return;
     }
+
+
+    // converts raw apps values to digital values
+    appsConverted1 = (float)(appsRaw1 - appsRaw1Min) / (float)(appsRaw1Max - appsRaw1Min);
+    appsConverted2 = (float)(appsRaw2 - appsRaw2Min) / (float)(appsRaw2Max - appsRaw2Min);
 
 
     uint32_t diff = (appsConverted1 > appsConverted2) ?

@@ -20,6 +20,11 @@
  * and send torque request to inverter process.
  */
 
+
+static uint32_t brakesRaw1 = 0;
+static uint32_t brakesRaw2 = 0;
+
+
 float AccelPos();
 
 float BrakePos();

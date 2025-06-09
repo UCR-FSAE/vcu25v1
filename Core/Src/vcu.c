@@ -32,6 +32,7 @@ extern ADC_HandleTypeDef hadc3;  /* ADC handle from main.c */
 extern CAN_HandleTypeDef hcan2;  /* CAN handle from main.c */
 // pedal input
 extern uint32_t appsConverted;
+extern bool inverterFault;
 
 /* Private function prototypes -----------------------------------------------*/
 static void VCU_ProcessAnalogInputs(void);
@@ -116,9 +117,13 @@ static void VCU_ProcessAnalogInputs(void)
 //	  torqueCommand = appsConverted
 //  }
 
-  torqueCommand = 75;
+//  torqueCommand = 75;
+
+
+  if (inverterFault == 1) { VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_DISABLE); }
+  else { VCU_TransmitCANMessage(torqueCommand, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE); }
   /* Send CAN message with torque command */
-  VCU_TransmitCANMessage(torqueCommand, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
+
 }
 
 /**
@@ -159,10 +164,8 @@ static void VCU_TransmitCANMessage(uint16_t torque, uint8_t direction, uint8_t i
   txData[7] = 0;
 
   /* Send CAN message */
-  if (HAL_CAN_AddTxMessage(&hcan2, &txHeader, txData, &txMailbox) != HAL_OK)
-  {
-	  HAL_CAN_AbortTxRequest(&hcan2, txMailbox);
-//	  Error_Handler();
+  if (HAL_CAN_AddTxMessage(&hcan2, &txHeader, txData, &txMailbox) != HAL_OK) {
+	  if (HAL_CAN_AbortTxRequest(&hcan2, txMailbox) != HAL_OK) { Error_Handler(); }
   }
   else {
 	  HAL_GPIO_TogglePin(GPIOB, 14);
