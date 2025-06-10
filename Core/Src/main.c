@@ -20,6 +20,7 @@
 #include "main.h"
 #include "string.h"
 #include "cmsis_os.h"
+#include "queue.h"		//Add queue for torque requests
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -202,6 +203,12 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
+
+
+  torqueQueue = xQueueCreate(10, sizeof(float));
+  //maybe check for null values? or if null or val <= 0 disable inverter?
+
+
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -776,12 +783,18 @@ void InverterProcessStart(void *argument)
 {
   /* USER CODE BEGIN 5 */
   VCU_Init();
+
+  //initial value for torque
+  float torque = 0;
+
   /* Infinite loop */
   for(;;)
   {
-	  VCU_Process();
 
-
+	  //get value from queue then pass into VCU process
+	  if (xQueueReceive(torqueQueue, &torque, portMAX_DELAY) == pdPASS) {
+		  VCU_Process(&torque);
+	  }
 
 //	  HAL_Delay(10);
 	  osDelay(1);
@@ -802,7 +815,12 @@ void PlausibilityStart(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+
+	  //get torque value and push into a queue for VCU process to read
+	  float torque = (float)MapTorque();
+	  xQueueSend(torqueQueue, &torque, portMAX_DELAY);
+
+	  osDelay(1);
   }
   /* USER CODE END PlausibilityStart */
 }

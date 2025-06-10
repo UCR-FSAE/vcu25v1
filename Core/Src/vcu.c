@@ -64,7 +64,7 @@ void VCU_Init(void)
   * @brief  Process VCU main functionality (to be called periodically)
   * @retval None
   */
-void VCU_Process(void)
+void VCU_Process(const float* torque)
 {
   /* Read accelerator pedal position from ADC */
 //  HAL_ADC_Start(&hadc3);
@@ -79,14 +79,14 @@ void VCU_Process(void)
   brakeRaw = 0;
 
   /* Process analog inputs and update commands */
-  VCU_ProcessAnalogInputs();
+  VCU_ProcessAnalogInputs(&torque);
 }
 
 /**
   * @brief  Process analog inputs to derive control commands
   * @retval None
   */
-static void VCU_ProcessAnalogInputs(void)
+static void VCU_ProcessAnalogInputs(const float* torque)
 {
   /* Only process if VCU is active */
   if (!vcuActive)
@@ -98,7 +98,12 @@ static void VCU_ProcessAnalogInputs(void)
   if (brakeRaw > BRAKE_THRESHOLD)
   {
 	torqueCommand = 0;
+
+
+	//Should we just disable inverter here?? or leave as is??
 	VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
+
+
 	return;
   }
 
@@ -116,7 +121,9 @@ static void VCU_ProcessAnalogInputs(void)
 //	  torqueCommand = appsConverted
 //  }
 
-  torqueCommand = 75;
+  // Send torque from queue into torque command
+  torqueCommand = torque;
+
   /* Send CAN message with torque command */
   VCU_TransmitCANMessage(torqueCommand, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
 }
