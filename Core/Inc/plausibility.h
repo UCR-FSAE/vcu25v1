@@ -9,6 +9,7 @@
 #define INC_PLAUSIBILITY_H_
 
 #include "main.h"
+#include "cmsis_os.h"  // Add this for RTOS queue functions
 
 /*
  * Description for plausibility check:
@@ -29,7 +30,7 @@ float AccelPos();
 
 float BrakePos();
 
-int PlausibilityCheck(float accel, float brake);
+bool PlausibilityCheck(float accel, float brake);
 
 int MapTorque();
 

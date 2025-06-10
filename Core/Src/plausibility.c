@@ -7,100 +7,74 @@
 
 #include "plausibility.h"
 
+// EXTERN DECLARATIONS FOR GLOBAL VARIABLES
+extern volatile float global_accel_position;
+extern volatile float global_torque_command;
+extern volatile bool global_data_updated;
+
 #define NUM_POINTS 5
 
 // This is basically the look up tables for the pedal map (VERY BASIC), uses linear interpolation for values inbetween ones set in LUT
-float pedal_table[NUM_POINTS] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+float pedal_table[NUM_POINTS] = {0.25f, 0.35f, 0.5f, 0.65f, 0.75f};
 float torque_table[NUM_POINTS] = {0.0f, 3.0f, 6.0f, 9.0f, 12.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
+
+float accel;
+float torque;
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc3;
 extern bool inverterFault;
 
-
+//extern uint32_t appsRaw1;  // Get the raw value
 extern uint32_t brakesRaw1Min;
 extern uint32_t brakesRaw1Max;
 extern uint32_t brakesRaw2Min;
 extern uint32_t brakesRaw2Max;
-extern uint32_t appsConverted;
+//extern uint32_t appsConverted;
 extern uint32_t brakesConverted;
+extern osMessageQueueId_t torqueQueueHandle;
+extern osMessageQueueId_t appsQueueHandle;
 
-//static uint32_t appsRaw1 = 0;
-//static uint32_t appsRaw2 = 0;
 
-/*
- * AccelPos:
- * Get Accelerator Potentiometer values from ADC and determine position percentage
- * NEED TO REFERENCE GLOBAL MIN AND MAX VALUES FOR POTENTIOMETERS, LOOK AT JUSTIN BRANCH
- */
-
-// this function should not be needed, and should be handled in the appsverify task.
-//float AccelPos() {
-//	// TO BE IMPLEMENTED
-//
-//	if (HAL_ADC_PollForConversion(&hadc3, 5) == HAL_OK) {
-//		appsRaw1 = HAL_ADC_GetValue(&hadc3);
-//	}
-//	else {
-//		// throw fault
-//	}
-//	if (HAL_ADC_PollForConversion(&hadc3, 7) == HAL_OK) {
-//		appsRaw2 = HAL_ADC_GetValue(&hadc3);
-//	}
-//	else {
-//		// throw fault
-//	}
-//
-//	// FIGURE OUT HOW TO CALCULATE PERCENTAGE BASED ON LIMITS
-//	// PLACEHOLDER, Unsure if works yet
-//	uint32_t app1Range = appsRaw1Max - appsRaw1Min;
-//	uint32_t app2Range = appsRaw2Max - appsRaw2Min;
-//
-//	float percent1 = appsRaw1 / app1Range;
-//	float percent2 = appsRaw2 / app2Range;
-//
-//	float percentAvg = (percent1 + percent2) / 2;
-//
-//
-//	// PLACEHOLDER
-//	return percentAvg;
-//
-//}
-
-/*
- * BrakePos:
- * Get Brake Potentiometer values from ADC and determine position percentage
- */
 float BrakePos() {
-	// TO BE IMPLEMENTED
+	// Fixed: Read brake sensors properly
+	uint32_t brakeRaw1_local = 0;
+	uint32_t brakeRaw2_local = 0;
+	
 	if (HAL_ADC_PollForConversion(&hadc1, 5) == HAL_OK) {
-		brakesRaw1 = HAL_ADC_GetValue(&hadc1);
+		brakeRaw1_local = HAL_ADC_GetValue(&hadc1);
 	}
 	else {
-		// throw fault
+		// throw fault - could set a brake fault flag here
+		return 0.0f;  // Safe default
 	}
+	
 	if (HAL_ADC_PollForConversion(&hadc1, 6) == HAL_OK) {
-		brakesRaw2 = HAL_ADC_GetValue(&hadc1);
+		brakeRaw2_local = HAL_ADC_GetValue(&hadc1);
 	}
 	else {
-		// throw fault
+		// throw fault - could set a brake fault flag here
+		return 0.0f;  // Safe default
 	}
 
-	// FIGURE OUT HOW TO CALCULATE PERCENTAGE BASED ON LIMITS
-	// PLACEHOLDER, Unsure if works yet
-	uint32_t brakes1Range = brakesRaw1Max - brakesRaw1Min;
-	uint32_t brakes2Range = brakesRaw2Max - brakesRaw2Min;
+	// Check if calibration data is valid
+	if (brakesRaw1Max == brakesRaw1Min || brakesRaw2Max == brakesRaw2Min) {
+		// Not calibrated yet or invalid calibration
+		return 0.0f;  // Safe default
+	}
 
-	// not sure if the above is necessary, since we are using a pressure sensor for the brakes. if we need to find the ranges, we can put this in the calibration task which runs first
+	// Calculate brake position as percentage
+	float percent1 = (float)(brakeRaw1_local - brakesRaw1Min) / (float)(brakesRaw1Max - brakesRaw1Min);
+	float percent2 = (float)(brakeRaw2_local - brakesRaw2Min) / (float)(brakesRaw2Max - brakesRaw2Min);
 
+	// Clamp to valid range
+	if (percent1 < 0.0f) percent1 = 0.0f;
+	if (percent1 > 1.0f) percent1 = 1.0f;
+	if (percent2 < 0.0f) percent2 = 0.0f;
+	if (percent2 > 1.0f) percent2 = 1.0f;
 
-	float percent1 = brakesRaw1 / brakes1Range;
-	float percent2 = brakesRaw2 / brakes2Range;
-
-	float percentAvg = (percent1 + percent2) / 2;
-
-
-	// PLACEHOLDER
+	// Return average of both sensors
+	float percentAvg = (percent1 + percent2) / 2.0f;
 	return percentAvg;
 }
 
@@ -108,18 +82,18 @@ float BrakePos() {
  * Plausibility Check:
  * Looks at two pedal positions and if both abosve 5%, then return 0, else return 1
  */
-int PlausibilityCheck(float accel, float brake) {
+bool PlausibilityCheck(float accel, float brake) {
 
 	if (accel > 0.05 && brake > 0.05) {
 		// disable the inverter flag
-		inverterFault = 1;
-		return 0;
+//		inverterFault = 1;
+		return false;
 	}
 
 	else {
 		// continue
 		inverterFault = 0;
-		return 1;
+		return true;
 	}
 
 }
@@ -156,27 +130,26 @@ float getTorqueFromPedal(float pedal_position) {
  * Does Plausibility check, if fail, then return value to disable inverter
  * If Pass, Map torque request based on Accelerator Pedal Position and return torque request value
  */
+
 int MapTorque() {
-	HAL_ADC_Start(&hadc1);
-//	HAL_ADC_Start(&hadc3);
+    static uint32_t counter = 0;
+    counter++;
 
-	// accell pos shouldn't be needed since appsConverted is calculated in the verify process
-	float accel = appsConverted;
-	float brake = BrakePos();
+    // DISABLED: LED debugging moved to ADC verify task only
+    // if (counter % 500 == 0) {
+    //     HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
+    // }
 
-	int check = PlausibilityCheck(accel, brake);
+    // Read from global variable instead of queue
+    accel = global_accel_position;
+    
+    // Reset the update flag (optional - can be used for detecting new data)
+    global_data_updated = false;
 
-	if (check == 0) {
-		// TO BE IMPELEMENTED: DISABLE INVERTER, NEED TO DETERMINE HOW
-		return 0;
-	}
-	else {
-		// TO BE IMPLEMENTED: DETERMINE HOW TO MAP TORQUE BASED ON PEDAL POSITION
-		// Range of Torque request is 0-60 N*m
-		// how do you want to map 0-60 to 0-1 value of pedal position.
-		float torque = getTorqueFromPedal(accel);
+    float torque = getTorqueFromPedal(accel);
 
-		//PLACEHOLDER Just going to constantly send 5 N*m for now
-		return torque;
-	}
+    // Store torque in global variable instead of queue
+    global_torque_command = torque;
+
+    return (int)torque;
 }

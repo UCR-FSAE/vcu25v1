@@ -9,6 +9,9 @@
 #include "vcu.h"
 #include <string.h>
 
+// EXTERN DECLARATIONS FOR GLOBAL VARIABLES
+extern volatile float global_torque_command;
+
 /* Private typedef -----------------------------------------------------------*/
 
 /* Private define ------------------------------------------------------------*/
@@ -29,7 +32,12 @@ static uint8_t vcuActive = 0;
 // hadc1 = apps pot 1
 extern ADC_HandleTypeDef hadc3;  /* ADC handle from main.c */
 // hcan1 = high priority can line
-extern CAN_HandleTypeDef hcan2;  /* CAN handle from main.c */
+extern CAN_HandleTypeDef hcan1;  /* CAN handle from main.c */
+extern CAN_HandleTypeDef hcan2;
+
+extern osMessageQueueId_t torqueQueueHandle;
+
+
 // pedal input
 extern uint32_t appsConverted;
 extern bool inverterFault;
@@ -56,7 +64,7 @@ void VCU_Init(void)
   /* Note: Main ADC initialization happens in main.c */
 
   /* Send initial disable message to ensure inverter is off */
-  HAL_ADC_Start(&hadc3);
+//  HAL_ADC_Start(&hadc3);
   VCU_DisableInverter();
   VCU_EnableInverter();
 }
@@ -118,8 +126,22 @@ static void VCU_ProcessAnalogInputs(void)
 //  }
 
 //  torqueCommand = 75;
+  
+  // Read from global variable instead of queue
+   float received_torque = global_torque_command;
+   static uint32_t no_msg_count = 0;
+  
+  // Convert float torque (N⋅m) to uint16_t for CAN transmission
+  // Scale appropriately for your inverter protocol
+  // Limit to reasonable range (0-100 Nm max)
+   if (received_torque < 0.0f) received_torque = 0.0f;
+   if (received_torque > 100.0f) received_torque = 100.0f;
+  
+  // Scale to 0-10000 range (instead of 0-3276700 which was causing issues)
+   torqueCommand = (uint16_t)(received_torque);  // 0-10000 range
+  // no_msg_count = 0;
 
-
+  
   if (inverterFault == 1) { VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_DISABLE); }
   else { VCU_TransmitCANMessage(torqueCommand, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE); }
   /* Send CAN message with torque command */
@@ -138,6 +160,7 @@ static void VCU_TransmitCANMessage(uint16_t torque, uint8_t direction, uint8_t i
   CAN_TxHeaderTypeDef txHeader;
   uint8_t txData[8];
   uint32_t txMailbox;
+  HAL_StatusTypeDef status;
 
   /* Configure transmission */
   txHeader.StdId = VCU_INVERTER_COMMAND_ID;
@@ -163,15 +186,34 @@ static void VCU_TransmitCANMessage(uint16_t torque, uint8_t direction, uint8_t i
   txData[6] = 0;
   txData[7] = 0;
 
+  /* Check if mailboxes are available */
+  if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+    // No free mailboxes - abort oldest message and try again
+    HAL_CAN_AbortTxRequest(&hcan1, CAN_TX_MAILBOX0);
+    HAL_CAN_AbortTxRequest(&hcan1, CAN_TX_MAILBOX1);
+    HAL_CAN_AbortTxRequest(&hcan1, CAN_TX_MAILBOX2);
+  }
+
   /* Send CAN message */
-  if (HAL_CAN_AddTxMessage(&hcan2, &txHeader, txData, &txMailbox) != HAL_OK) {
-	  if (HAL_CAN_AbortTxRequest(&hcan2, txMailbox) != HAL_OK) { Error_Handler(); }
+  status = HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+  
+  if (status != HAL_OK) {
+    // CAN transmission failed
+    uint32_t errorCode = HAL_CAN_GetError(&hcan1);
+    
+    
+    // Try to abort and retry once
+    if (HAL_CAN_AbortTxRequest(&hcan1, txMailbox) != HAL_OK) {
+      Error_Handler();
+    }
   }
   else {
-	  HAL_GPIO_TogglePin(GPIOB, 14);
-	  HAL_Delay(10);
-	  HAL_GPIO_TogglePin(GPIOB, 14);
-	  HAL_Delay(10);
+    // Success - flash success LED pattern
+    // DISABLED: LED debugging moved to ADC verify task only
+    // HAL_GPIO_TogglePin(GPIOB, 14);
+    // HAL_Delay(10);
+    // HAL_GPIO_TogglePin(GPIOB, 14);
+    // HAL_Delay(10);
   }
 }
 
@@ -188,10 +230,11 @@ void VCU_EnableInverter(void)
   VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
 
   /* Visual indication - could toggle an LED here */
-  	  HAL_GPIO_TogglePin(GPIOB, 7);
-  	  HAL_Delay(10);
-  	  HAL_GPIO_TogglePin(GPIOB, 7);
-  	  HAL_Delay(10);
+  // DISABLED: LED debugging moved to ADC verify task only
+  // HAL_GPIO_TogglePin(GPIOB, 7);
+  // HAL_Delay(10);
+  // HAL_GPIO_TogglePin(GPIOB, 7);
+  // HAL_Delay(10);
 }
 
 /**

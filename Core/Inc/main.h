@@ -33,12 +33,16 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
 #include "cmsis_os.h"
+#include "freertos.h"
+#include "queue.h"
 
 // user written files
 #include "vcu.h"
 #include "appsVerify.h"
 #include "appsCalibrate.h"
 #include "plausibility.h"
+#include "task.h"          // For TaskHandle_t
+#include "semphr.h"        // For SemaphoreHandle_t
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
