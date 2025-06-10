@@ -23,7 +23,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "vcu.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define ADC_NUM_CHANNELS 2 // Matches hadc3.Init.NbrOfConversion
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -80,38 +79,59 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 osThreadId_t InverterProcessHandle;
 const osThreadAttr_t InverterProcess_attributes = {
   .name = "InverterProcess",
-  .stack_size = 128 * 4,
+  .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for Plausibility */
 osThreadId_t PlausibilityHandle;
 const osThreadAttr_t Plausibility_attributes = {
   .name = "Plausibility",
-  .stack_size = 128 * 4,
+  .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for AppsVerify */
 osThreadId_t AppsVerifyHandle;
 const osThreadAttr_t AppsVerify_attributes = {
   .name = "AppsVerify",
-  .stack_size = 128 * 4,
+  .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for AppsCalibrate */
 osThreadId_t AppsCalibrateHandle;
 const osThreadAttr_t AppsCalibrate_attributes = {
   .name = "AppsCalibrate",
-  .stack_size = 128 * 4,
+  .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for ADCDataReady */
+osSemaphoreId_t ADCDataReadyHandle;
+const osSemaphoreAttr_t ADCDataReady_attributes = {
+  .name = "ADCDataReady"
 };
 /* USER CODE BEGIN PV */
 uint32_t appsRaw1Min = 0;
 uint32_t appsRaw1Max = 0;
 uint32_t appsRaw2Min = 0;
 uint32_t appsRaw2Max = 0;
-uint32_t appsConverted = 0;
+float appsConverted = 0.0;
+
+uint32_t brakesRaw1Min = 0;
+uint32_t brakesRaw1Max = 0;
+uint32_t brakesRaw2Min = 0;
+uint32_t brakesRaw2Max = 0;
+uint32_t brakesConverted = 0;
+
+uint32_t appsRaw1;
+
+volatile uint32_t adcResults[ADC_NUM_CHANNELS]; // Use volatile because DMA writes to it
 
 bool pedalFault = 0;
+bool inverterFault = 0;
+
+// NEW GLOBAL VARIABLES FOR TASK COMMUNICATION (replacing queues)
+volatile float global_accel_position = 0.0f;    // Shared between appsVerify and plausibility (0.0-1.0 range)
+volatile float global_torque_command = 0.0f;    // Shared between plausibility and VCU (N⋅m)
+volatile bool global_data_updated = false;      // Flag to indicate new data available
 
 /* USER CODE END PV */
 
@@ -138,7 +158,6 @@ void AppsCalibrateStart(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 /* USER CODE END 0 */
 
 /**
@@ -183,6 +202,8 @@ int main(void)
   // hcan1 = high priority, hcan2 = low priority
   HAL_CAN_Start(&hcan1);
   HAL_CAN_Start(&hcan2);
+
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -191,6 +212,10 @@ int main(void)
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
+
+  /* Create the semaphores(s) */
+  /* creation of ADCDataReady */
+  ADCDataReadyHandle = osSemaphoreNew(1, 1, &ADCDataReady_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -426,14 +451,14 @@ static void MX_ADC3_Init(void)
   hadc3.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc3.Init.Resolution = ADC_RESOLUTION_12B;
   hadc3.Init.ScanConvMode = ADC_SCAN_ENABLE;
-  hadc3.Init.ContinuousConvMode = DISABLE;
+  hadc3.Init.ContinuousConvMode = ENABLE;
   hadc3.Init.DiscontinuousConvMode = DISABLE;
   hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc3.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc3.Init.NbrOfConversion = 2;
   hadc3.Init.DMAContinuousRequests = DISABLE;
-  hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc3.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   if (HAL_ADC_Init(&hadc3) != HAL_OK)
   {
     Error_Handler();
@@ -443,7 +468,7 @@ static void MX_ADC3_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_5;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -451,12 +476,31 @@ static void MX_ADC3_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
+  sConfig.Channel = ADC_CHANNEL_7;
   sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN ADC3_Init 2 */
+
+  // Link ADC3 to its DMA channel (e.g., DMA2_Stream1 for ADC3 on some STM32s)
+//  hdma_adc3.Instance = DMA2_Stream1; // Or whatever is correct for your MCU
+//  hdma_adc3.Init.Channel = DMA_CHANNEL_2; // Or correct channel for ADC3
+//  hdma_adc3.Init.Direction = DMA_PERIPH_TO_MEMORY;
+//  hdma_adc3.Init.PeriphInc = DMA_PINC_DISABLE;
+//  hdma_adc3.Init.MemInc = DMA_MINC_ENABLE; // Increment memory address for each conversion
+//  hdma_adc3.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD; // 16-bit for 12-bit ADC
+//  hdma_adc3.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+//  hdma_adc3.Init.Mode = DMA_CIRCULAR; // Or DMA_CIRCULAR if continuous
+//  hdma_adc3.Init.Priority = DMA_PRIORITY_LOW;
+//  hdma_adc3.Init.FIFOMode = DMA_FIFOMODE_DISABLE; // Or ENABLE with specific threshold
+//  if (HAL_DMA_Init(&hdma_adc3) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
+//
+//  __HAL_LINKDMA(&hadc3, DMA_Handle, hdma_adc3); // Link ADC handle to DMA handle
 
   /* USER CODE END ADC3_Init 2 */
 
@@ -494,6 +538,23 @@ static void MX_CAN1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN1_Init 2 */
+  // Configure CAN filters - CRITICAL for proper CAN operation
+  CAN_FilterTypeDef canFilter;
+  canFilter.FilterActivation = CAN_FILTER_ENABLE;
+  canFilter.FilterBank = 0;
+  canFilter.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  canFilter.FilterIdHigh = 0x0000;
+  canFilter.FilterIdLow = 0x0000;
+  canFilter.FilterMaskIdHigh = 0x0000;
+  canFilter.FilterMaskIdLow = 0x0000;
+  canFilter.FilterMode = CAN_FILTERMODE_IDMASK;
+  canFilter.FilterScale = CAN_FILTERSCALE_32BIT;
+  canFilter.SlaveStartFilterBank = 14;  // For CAN2 - not used here but required
+
+  if (HAL_CAN_ConfigFilter(&hcan1, &canFilter) != HAL_OK) {
+    Error_Handler();
+  }
+
 
   /* USER CODE END CAN1_Init 2 */
 
@@ -532,6 +593,25 @@ static void MX_CAN2_Init(void)
   }
   /* USER CODE BEGIN CAN2_Init 2 */
 
+  // Configure CAN filters - CRITICAL for proper CAN operation
+  CAN_FilterTypeDef canFilter;
+  canFilter.FilterActivation = CAN_FILTER_ENABLE;
+  canFilter.FilterBank = 0;
+  canFilter.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  canFilter.FilterIdHigh = 0x0000;
+  canFilter.FilterIdLow = 0x0000;
+  canFilter.FilterMaskIdHigh = 0x0000;
+  canFilter.FilterMaskIdLow = 0x0000;
+  canFilter.FilterMode = CAN_FILTERMODE_IDMASK;
+  canFilter.FilterScale = CAN_FILTERSCALE_32BIT;
+  canFilter.SlaveStartFilterBank = 14;  // For CAN2 - not used here but required
+
+
+  // Configure filter for CAN2 as well
+  canFilter.FilterBank = 14;  // Use filter bank 14 for CAN2
+  if (HAL_CAN_ConfigFilter(&hcan2, &canFilter) != HAL_OK) {
+    Error_Handler();
+  }
   /* USER CODE END CAN2_Init 2 */
 
 }
@@ -800,9 +880,12 @@ void PlausibilityStart(void *argument)
 {
   /* USER CODE BEGIN PlausibilityStart */
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
+  for(;;) {
+
+	  MapTorque();
+
+	  osDelay(1);
+    // TESTINNGGG HELLLOOOO
   }
   /* USER CODE END PlausibilityStart */
 }
@@ -823,11 +906,14 @@ void AppsVerifyStart(void *argument)
 	/* Infinite loop */
 	for(;;)
 	{
-//		appsVerifyProcess();
+
+//	    if (osSemaphoreAcquire(ADCDataReadyHandle, osWaitForever) == osOK) {
+		appsVerifyProcess();
+//	    }
 //		vTaskDelayUntil(&lastWake, period);
 		osDelay(1);
 	}
-	/* USER CODE END AppsVerifyStart */
+  /* USER CODE END AppsVerifyStart */
 }
 
 /* USER CODE BEGIN Header_AppsCalibrateStart */
@@ -841,9 +927,8 @@ void AppsCalibrateStart(void *argument)
 {
   /* USER CODE BEGIN AppsCalibrateStart */
 
-//	 calibrates apps
-//	appsCalibrate();
-
+	//calibrates apps
+	appsCalibrate();
 
 	// deletes task to ensure single execution
 	vTaskDelete(NULL);
