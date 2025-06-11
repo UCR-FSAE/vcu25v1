@@ -135,11 +135,6 @@ int MapTorque() {
     static uint32_t counter = 0;
     counter++;
 
-    // DISABLED: LED debugging moved to ADC verify task only
-    // if (counter % 500 == 0) {
-    //     HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
-    // }
-
     // Read from global variable instead of queue
     accel = global_accel_position;
     
