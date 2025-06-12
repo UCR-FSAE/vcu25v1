@@ -36,49 +36,17 @@ void appsVerifyProcess(void) {
     static uint32_t debug_counter = 0;
     debug_counter++;
 
-    ADC_ChannelConfTypeDef sConfig = {0};
-    uint16_t adc_value = 0;
-
-    // pot 1
-    HAL_ADC_Stop(&hadc3);
-
-    sConfig.Channel = ADC_CHANNEL_5;
-    sConfig.Rank = ADC_REGULAR_RANK_1; // Always Rank 1 for a single conversion
-    sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES; // Adjust based on your sensor and clock
-    sConfig.Offset = 0;
-
-    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK) { Error_Handler(); }
-
-    // Start the ADC conversion
     if (HAL_ADC_Start(&hadc3) != HAL_OK) { Error_Handler(); }
 
-    if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) { adc_value = HAL_ADC_GetValue(&hadc3); }
-    else {
-        adc_value = 0; // Or some error value
-        HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out
+    if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) {
+        appsRaw1 = HAL_ADC_GetValue(&hadc3);
+        appsRaw2 = HAL_ADC_GetValue(&hadc3);
     }
-    appsRaw1 = adc_value;
-
-    // pot 2
-    HAL_ADC_Stop(&hadc3);
-
-    sConfig.Channel = ADC_CHANNEL_7;
-    sConfig.Rank = ADC_REGULAR_RANK_2; // Always Rank 1 for a single conversion
-    sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES; // Adjust based on your sensor and clock
-    sConfig.Offset = 0;
-
-    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK) { Error_Handler(); }
-
-     // Start the ADC conversion
-     if (HAL_ADC_Start(&hadc3) != HAL_OK) { Error_Handler(); }
-
-     if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) { adc_value = HAL_ADC_GetValue(&hadc3); }
-     else {
-         adc_value = 0; // Or some error value
-         HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out
-     }
-    appsRaw2 = adc_value;
-    HAL_ADC_Stop(&hadc3);
+    else {
+        appsRaw1 = 0;
+        appsRaw2 = 0;
+        HAL_ADC_Stop(&hadc3); // stop the ADC if it timed out due to error
+    }
 
     // FIXED: Convert raw values to 0.0-1.0 range properly
     appsConverted1 = (float)(appsRaw1 - appsRaw1Min) / (float)(appsRaw1Max - appsRaw1Min);
@@ -104,16 +72,15 @@ void appsVerifyProcess(void) {
         }
         else if ((osKernelGetTickCount() - mismatchStart) >= 100) { // 100ms in ticks
 //            pedalFault = true;
+        	HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
         }
     }
     else {
         offsetFlag = false;
     }
 
-    // FIXED: Calculate the average and convert to proper integer range (0-1000)
     float average = (appsConverted1 + appsConverted2) / 2.0f;
-    // FIXED: Store normalized value in global variable (already in 0.0-1.0 range)
-    global_accel_position = average;  // Already in 0.0-1.0 range
+    global_accel_position = average;  // 0.0-1.0 range
     global_data_updated = true;
 
 }

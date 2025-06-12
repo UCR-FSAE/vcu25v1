@@ -62,51 +62,50 @@ void appsCalibrate(void) {
 	uint32_t t0 = HAL_GetTick(); // ms since power-up
 	// for 3000 ms window
 	while (HAL_GetTick() - t0 < 3000) {
-	    ADC_ChannelConfTypeDef sConfig = {0};
-	    uint16_t adc_value = 0;
 
-	    // pot 1
-	    HAL_ADC_Stop(&hadc3);
+		// It's good practice to stop if coming from a different mode or if errors occurred previously,
+		// but if ContinuousConvMode is DISABLED, the ADC will stop after one sequence.
+		// So, this HAL_ADC_Stop() might be redundant but is harmless.
+		HAL_ADC_Stop(&hadc3); // Stop any ongoing conversion before starting a new sequence
 
-	    sConfig.Channel = ADC_CHANNEL_5;
-	    sConfig.Rank = ADC_REGULAR_RANK_1; // Always Rank 1 for a single conversion
-	    sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES; // Adjust based on your sensor and clock
-	    sConfig.Offset = 0;
+		// Start the ADC conversion. This will trigger a conversion for all channels
+		// configured in the sequence (ADC_CHANNEL_5 then ADC_CHANNEL_7).
+		if (HAL_ADC_Start(&hadc3) != HAL_OK) {
+			// Handle error - e.g., call Error_Handler(), perhaps break the loop
+			Error_Handler();
+			break; // Exit calibration loop on error
+		}
 
-	    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK) { Error_Handler(); }
+		// Poll for conversion completion of the entire sequence of NbrOfConversion channels.
+		if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) { // 10ms timeout should be ample
+			// Get the converted values.
+			// HAL_ADC_GetValue() will return the channels in the order they were ranked
+			// during ADC initialization (Rank 1 then Rank 2).
+			v1 = HAL_ADC_GetValue(&hadc3); // Get value for Rank 1 (ADC_CHANNEL_5)
+			v2 = HAL_ADC_GetValue(&hadc3); // Get value for Rank 2 (ADC_CHANNEL_7)
 
-	    // Start the ADC conversion
-	    if (HAL_ADC_Start(&hadc3) != HAL_OK) { Error_Handler(); }
+			// Update maximum values
+			if (v1 > appsRaw1Max) appsRaw1Max = v1;
+			if (v2 > appsRaw2Max) appsRaw2Max = v2;
+		}
+		else {
+			// Conversion not complete within timeout or error occurred
+			// You might want to indicate an error or retry.
+			// For calibration, returning 0 or a special value might be useful.
+			v1 = 0; // Indicate error
+			v2 = 0; // Indicate error
+			HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out or had an error
+			// Optionally, break the loop:
+			// break;
+		}
 
-	    if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) { adc_value = HAL_ADC_GetValue(&hadc3); }
-	    else {
-	        v1 = 0; // Or some error value
-	        HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out
-	    }
-	    v1 = adc_value;
-	    if (v1 > appsRaw1Max) appsRaw1Max = v1;
+		// If ContinuousConvMode is DISABLED, the ADC stops itself after completing the sequence.
+		// No need for an explicit HAL_ADC_Stop(&hadc3) here after the poll, as the next loop iteration
+		// will call HAL_ADC_Stop() again before starting.
 
-	    // pot 2
-	    HAL_ADC_Stop(&hadc3);
-
-	    sConfig.Channel = ADC_CHANNEL_7;
-	    sConfig.Rank = ADC_REGULAR_RANK_2; // Always Rank 1 for a single conversion
-	    sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES; // Adjust based on your sensor and clock
-	    sConfig.Offset = 0;
-
-	    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK) { Error_Handler(); }
-
-	     // Start the ADC conversion
-	     if (HAL_ADC_Start(&hadc3) != HAL_OK) { Error_Handler(); }
-
-	     if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) { adc_value = HAL_ADC_GetValue(&hadc3); }
-	     else {
-	         v2 = 0; // Or some error value
-	         HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out
-	     }
-	    v2 = adc_value;
-	    if (v2 > appsRaw2Max) appsRaw2Max = v2;
-	    HAL_ADC_Stop(&hadc3);
+		// Add a small delay to avoid busy-waiting too aggressively and allow other
+		// tasks (if any) or system functions to run, without overly slowing down calibration.
+		HAL_Delay(10); // Adjust this delay to control the sampling rate during calibration.
 	}
 
 	// send begin min calibraion
@@ -129,51 +128,30 @@ void appsCalibrate(void) {
 
 	t0 = HAL_GetTick();
 	while (HAL_GetTick() - t0 < 3000) {
-	    ADC_ChannelConfTypeDef sConfig = {0};
-	    uint16_t adc_value = 0;
+		HAL_ADC_Stop(&hadc3); // Stop any ongoing conversion before starting a new sequence
 
-	    // pot 1
-	    HAL_ADC_Stop(&hadc3);
+		if (HAL_ADC_Start(&hadc3) != HAL_OK) {
+			Error_Handler();
+			break; // Exit calibration loop on error
+		}
 
-	    sConfig.Channel = ADC_CHANNEL_5;
-	    sConfig.Rank = ADC_REGULAR_RANK_1; // Always Rank 1 for a single conversion
-	    sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES; // Adjust based on your sensor and clock
-	    sConfig.Offset = 0;
+		if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) {
+			v1 = HAL_ADC_GetValue(&hadc3); // Get value for Rank 1 (Channel 5)
+			v2 = HAL_ADC_GetValue(&hadc3); // Get value for Rank 2 (Channel 7)
 
-	    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK) { Error_Handler(); }
+			// Update min values (CORRECTED LOGIC)
+			if (v1 < appsRaw1Min) appsRaw1Min = v1;
+			if (v2 < appsRaw2Min) appsRaw2Min = v2;
+		}
+		else {
+			v1 = 0; // Indicate error
+			v2 = 0; // Indicate error
+			HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out
+			// Optionally, break the loop:
+			// break;
+		}
+		HAL_Delay(10); // Adjust as needed
 
-	    // Start the ADC conversion
-	    if (HAL_ADC_Start(&hadc3) != HAL_OK) { Error_Handler(); }
-
-	    if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) { adc_value = HAL_ADC_GetValue(&hadc3); }
-	    else {
-	        v1 = 0; // Or some error value
-	        HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out
-	    }
-	    v1 = adc_value;
-	    if (v1 < appsRaw1Min) appsRaw1Min = v1;
-
-	    // pot 2
-	    HAL_ADC_Stop(&hadc3);
-
-	    sConfig.Channel = ADC_CHANNEL_7;
-	    sConfig.Rank = ADC_REGULAR_RANK_2; // Always Rank 1 for a single conversion
-	    sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES; // Adjust based on your sensor and clock
-	    sConfig.Offset = 0;
-
-	    if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK) { Error_Handler(); }
-
-	     // Start the ADC conversion
-	     if (HAL_ADC_Start(&hadc3) != HAL_OK) { Error_Handler(); }
-
-	     if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) { adc_value = HAL_ADC_GetValue(&hadc3); }
-	     else {
-	         v2 = 0; // Or some error value
-	         HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out
-	     }
-	    v2 = adc_value;
-	    if (v2 < appsRaw2Min) appsRaw2Min = v2;
-	    HAL_ADC_Stop(&hadc3);
 	}
 
 	HAL_GPIO_TogglePin(GPIOB, LD3_Pin);
@@ -190,11 +168,6 @@ void appsCalibrate(void) {
 		HAL_Delay(10);
 		HAL_GPIO_TogglePin(GPIOB, 14);
 	}
-
-
-
-	//	HAL_GPIO_TogglePin(GPIOB, 0);
-	//	HAL_Delay(100);
 
 	return;
 }
