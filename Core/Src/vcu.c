@@ -66,7 +66,11 @@ void VCU_Init(void)
   /* Send initial disable message to ensure inverter is off */
 //  HAL_ADC_Start(&hadc3);
   VCU_DisableInverter();
+//  HAL_Delay(1000);
   VCU_EnableInverter();
+//  HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
+//  HAL_Delay(1000);
+//  HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
 }
 
 /**
@@ -87,6 +91,7 @@ void VCU_Process(void)
   /* For now, we simulate no brake press */
   brakeRaw = 0;
 
+//  VCU_EnableInverter();
   /* Process analog inputs and update commands */
   VCU_ProcessAnalogInputs();
 }

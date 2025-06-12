@@ -860,9 +860,6 @@ void InverterProcessStart(void *argument)
   for(;;)
   {
 	  VCU_Process();
-
-
-
 //	  HAL_Delay(10);
 	  osDelay(1);
   }
