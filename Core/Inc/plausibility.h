@@ -22,8 +22,8 @@
  */
 
 
-static uint32_t brakesRaw1 = 0;
-static uint32_t brakesRaw2 = 0;
+//static uint32_t brakesRaw1 = 0;
+//static uint32_t brakesRaw2 = 0;
 
 
 float AccelPos();

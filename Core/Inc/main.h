@@ -43,6 +43,7 @@ extern "C" {
 #include "plausibility.h"
 #include "task.h"          // For TaskHandle_t
 #include "semphr.h"        // For SemaphoreHandle_t
+#include "brakeCalibrate.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

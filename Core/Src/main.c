@@ -103,6 +103,13 @@ const osThreadAttr_t AppsCalibrate_attributes = {
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for BrakeCalibrate */
+osThreadId_t BrakeCalibrateHandle;
+const osThreadAttr_t BrakeCalibrate_attributes = {
+  .name = "BrakeCalibrate",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
 /* Definitions for ADCDataReady */
 osSemaphoreId_t ADCDataReadyHandle;
 const osSemaphoreAttr_t ADCDataReady_attributes = {
@@ -151,6 +158,7 @@ void InverterProcessStart(void *argument);
 void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
 void AppsCalibrateStart(void *argument);
+void BrakeCalibrateStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -241,6 +249,9 @@ int main(void)
 
   /* creation of AppsCalibrate */
   AppsCalibrateHandle = osThreadNew(AppsCalibrateStart, NULL, &AppsCalibrate_attributes);
+
+  /* creation of BrakeCalibrate */
+  BrakeCalibrateHandle = osThreadNew(BrakeCalibrateStart, NULL, &BrakeCalibrate_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -931,6 +942,26 @@ void AppsCalibrateStart(void *argument)
 	vTaskDelete(NULL);
 
   /* USER CODE END AppsCalibrateStart */
+}
+
+/* USER CODE BEGIN Header_BrakeCalibrateStart */
+/**
+* @brief Function implementing the BrakeCalibrate thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_BrakeCalibrateStart */
+void BrakeCalibrateStart(void *argument)
+{
+  /* USER CODE BEGIN BrakeCalibrateStart */
+
+	//calibrates apps
+	brakeCalibrate();
+
+	// deletes task to ensure single execution
+	vTaskDelete(NULL);
+
+  /* USER CODE END BrakeCalibrateStart */
 }
 
 /**
