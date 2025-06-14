@@ -135,6 +135,7 @@ volatile float global_torque_command = 0.0f;    // Shared between plausibility a
 volatile bool global_accel_data_updated = false;      // Flag to indicate new data available
 volatile bool global_brake_data_updated = false;      // Flag to indicate new data available
 volatile bool global_brake_isShort = false;		// Flag to see if brake shorting or open circuit
+volatile bool global_plausibility_check = true;	  // Flag to check plausibility
 
 /* USER CODE END PV */
 

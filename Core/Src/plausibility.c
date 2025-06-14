@@ -13,6 +13,7 @@ extern volatile float global_brake_position;
 extern volatile float global_torque_command;
 extern volatile bool global_accel_data_updated;
 extern volatile bool global_brake_data_updated;
+extern volatile bool global_plausibility_check;
 
 #define NUM_POINTS 7
 
@@ -90,12 +91,14 @@ bool PlausibilityCheck(float accel, float brake) {
 	if (accel > 0.05 && brake > 0.05) {
 		// disable the inverter flag
 //		inverterFault = 1;
+		global_plausibility_check = false;	//have fault
 		return false;
 	}
 
 	else {
 		// continue
 		inverterFault = 0;
+		global_plausibility_check = true;	//no fault
 		return true;
 	}
 
