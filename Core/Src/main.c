@@ -130,8 +130,11 @@ bool inverterFault = 0;
 
 // NEW GLOBAL VARIABLES FOR TASK COMMUNICATION (replacing queues)
 volatile float global_accel_position = 0.0f;    // Shared between appsVerify and plausibility (0.0-1.0 range)
+volatile float global_brake_position = 0.0f;    // Shared between brakeVerify and plausibility (0.0-1.0 range)
 volatile float global_torque_command = 0.0f;    // Shared between plausibility and VCU (N⋅m)
-volatile bool global_data_updated = false;      // Flag to indicate new data available
+volatile bool global_accel_data_updated = false;      // Flag to indicate new data available
+volatile bool global_brake_data_updated = false;      // Flag to indicate new data available
+volatile bool global_brake_isShort = false;		// Flag to see if brake shorting or open circuit
 
 /* USER CODE END PV */
 

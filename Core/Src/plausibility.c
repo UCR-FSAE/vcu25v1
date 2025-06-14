@@ -9,8 +9,10 @@
 
 // EXTERN DECLARATIONS FOR GLOBAL VARIABLES
 extern volatile float global_accel_position;
+extern volatile float global_brake_position;
 extern volatile float global_torque_command;
-extern volatile bool global_data_updated;
+extern volatile bool global_accel_data_updated;
+extern volatile bool global_brake_data_updated;
 
 #define NUM_POINTS 7
 
@@ -19,6 +21,7 @@ float pedal_table[NUM_POINTS] = {0.25f, 0.35f, 0.5f, 0.65f, 0.75f, 0.95f, 1.0f};
 float torque_table[NUM_POINTS] = {0.0f, 15.0f, 25.0f, 30.0f, 65.0f, 75.0f, 75.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
 
 float accel;
+float brake;
 float torque;
 
 extern ADC_HandleTypeDef hadc1;
@@ -98,6 +101,14 @@ bool PlausibilityCheck(float accel, float brake) {
 
 }
 
+
+/*
+ *
+ * Over 25% Check
+ *
+ */
+
+
 /*
  * GetTorqueFromPedal:
  * takes in the pedal position and maps it to a torque value based on the defined arrays.
@@ -137,11 +148,14 @@ int MapTorque() {
 
     // Read from global variable instead of queue
     accel = global_accel_position;
+    brake = global_brake_position;
     
     // Reset the update flag (optional - can be used for detecting new data)
-    global_data_updated = false;
+    global_accel_data_updated = false;
+    global_brake_data_updated = false;
 
-    float torque = getTorqueFromPedal(accel);
+    //check plausibility before updating torque
+    float torque = PlausibilityCheck(accel, brake) ? getTorqueFromPedal(accel) : 0; //get torque if true set as 0 if false
 
     // Store torque in global variable instead of queue
     global_torque_command = torque;

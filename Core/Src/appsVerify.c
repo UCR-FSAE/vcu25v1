@@ -12,7 +12,7 @@
 
 // EXTERN DECLARATIONS FOR GLOBAL VARIABLES
 extern volatile float global_accel_position;
-extern volatile bool global_data_updated;
+extern volatile bool global_accel_data_updated;
 extern osSemaphoreId_t ADCDataReadyHandle;
 
 extern uint32_t appsRaw1Min;
@@ -81,7 +81,7 @@ void appsVerifyProcess(void) {
 
     float average = (appsConverted1 + appsConverted2) / 2.0f;
     global_accel_position = average;  // 0.0-1.0 range
-    global_data_updated = true;
+    global_accel_data_updated = true;
 
 }
 
