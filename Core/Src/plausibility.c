@@ -6,11 +6,19 @@
  */
 
 #include "plausibility.h"
+#include "vcu.h"
 
 // EXTERN DECLARATIONS FOR GLOBAL VARIABLES
 extern volatile float global_accel_position;
 extern volatile float global_torque_command;
 extern volatile bool global_data_updated;
+
+// BSPD EXTERN DECLARATIONS
+extern volatile bool global_rtd_button_state;
+extern volatile bool global_rtm_active_state;
+
+// FSAE READY TO DRIVE EXTERN DECLARATION
+extern volatile bool global_ready_to_drive;
 
 #define NUM_POINTS 7
 
@@ -23,7 +31,6 @@ float torque;
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc3;
-extern bool inverterFault;
 
 //extern uint32_t appsRaw1;  // Get the raw value
 extern uint32_t brakesRaw1Min;
@@ -80,19 +87,28 @@ float BrakePos() {
 
 /*
  * Plausibility Check:
- * Looks at two pedal positions and if both abosve 5%, then return 0, else return 1
+ * Looks at two pedal positions and if both above 5%, then return 0, else return 1
+ * Also incorporates BSPD safety checks for RTD Button and RTM Active signals
  */
 bool PlausibilityCheck(float accel, float brake) {
 
+	// Check if both pedals are pressed simultaneously (original safety check)
 	if (accel > 0.05 && brake > 0.05) {
-		// disable the inverter flag
-//		inverterFault = 1;
+		// Disable inverter for safety
+		VCU_DisableInverter();
+		return false;
+	}
+	
+	// FSAE Ready to Drive Check: Ready to Drive must be active for inverter operation
+	if (!global_ready_to_drive) {
+		// Ready to Drive not active - disable inverter
+		VCU_DisableInverter();
 		return false;
 	}
 
 	else {
-		// continue
-		inverterFault = 0;
+		// All plausibility checks passed - enable inverter
+		VCU_EnableInverter();
 		return true;
 	}
 
@@ -140,8 +156,23 @@ int MapTorque() {
     
     // Reset the update flag (optional - can be used for detecting new data)
     global_data_updated = false;
+    
+    // Get brake position
+    float brake = BrakePos();
 
-    float torque = getTorqueFromPedal(accel);
+    // Perform plausibility check (includes BSPD safety checks)
+    bool plausibilityPassed = PlausibilityCheck(accel, brake);
+    
+    float torque = 0.0f;
+    
+    if (plausibilityPassed) {
+        // All safety checks passed - calculate torque
+        torque = getTorqueFromPedal(accel);
+    }
+    else {
+        // Safety check failed - set torque to zero
+        torque = 0.0f;
+    }
 
     // Store torque in global variable instead of queue
     global_torque_command = torque;

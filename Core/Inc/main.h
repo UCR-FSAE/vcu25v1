@@ -41,6 +41,7 @@ extern "C" {
 #include "appsVerify.h"
 #include "appsCalibrate.h"
 #include "plausibility.h"
+#include "safetyInputMonitor.h"
 #include "task.h"          // For TaskHandle_t
 #include "semphr.h"        // For SemaphoreHandle_t
 /* USER CODE END Includes */
@@ -122,7 +123,16 @@ void Error_Handler(void);
 #define LD2_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+/* FSAE Safety System Pin Definitions */
+#define RTD_BUTTON_Pin GPIO_PIN_6
+#define RTD_BUTTON_GPIO_Port GPIOE
+#define RTM_ACTIVE_Pin GPIO_PIN_4
+#define RTM_ACTIVE_GPIO_Port GPIOE
+#define BUZZER_ACTIVE_Pin GPIO_PIN_5
+#define BUZZER_ACTIVE_GPIO_Port GPIOE
 
+/* ADC Channel for Brake Sensor */
+#define BRAKE_SENSOR_ADC_CHANNEL ADC_CHANNEL_7  /* PF9 is ADC3_IN7 */
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

@@ -1,7 +1,7 @@
 /**
   ******************************************************************************
   * @file    vcu.c
-  * @brief   Vehicle Control Unit implementation
+  * @brief   Vehicle Control Unit implementation - Pretty much just inverter control
   ******************************************************************************
   */
 
@@ -40,7 +40,6 @@ extern osMessageQueueId_t torqueQueueHandle;
 
 // pedal input
 extern uint32_t appsConverted;
-extern bool inverterFault;
 
 /* Private function prototypes -----------------------------------------------*/
 static void VCU_ProcessAnalogInputs(void);
@@ -147,8 +146,8 @@ static void VCU_ProcessAnalogInputs(void)
   // no_msg_count = 0;
 
   
-  if (inverterFault == 1) { VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_DISABLE); }
-  else { VCU_TransmitCANMessage(torqueCommand, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE); }
+  // Send torque command (plausibility task handles enable/disable logic)
+  VCU_TransmitCANMessage(torqueCommand, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
   /* Send CAN message with torque command */
 
 }

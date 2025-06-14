@@ -103,6 +103,13 @@ const osThreadAttr_t AppsCalibrate_attributes = {
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for SafetyInputMonitor */
+osThreadId_t SafetyInputMonitorHandle;
+const osThreadAttr_t SafetyInputMonitor_attributes = {
+  .name = "SafetyInputMonitor",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* Definitions for ADCDataReady */
 osSemaphoreId_t ADCDataReadyHandle;
 const osSemaphoreAttr_t ADCDataReady_attributes = {
@@ -126,12 +133,22 @@ uint32_t appsRaw1;
 volatile uint32_t adcResults[ADC_NUM_CHANNELS]; // Use volatile because DMA writes to it
 
 bool pedalFault = 0;
-bool inverterFault = 0;
 
 // NEW GLOBAL VARIABLES FOR TASK COMMUNICATION (replacing queues)
 volatile float global_accel_position = 0.0f;    // Shared between appsVerify and plausibility (0.0-1.0 range)
 volatile float global_torque_command = 0.0f;    // Shared between plausibility and VCU (N⋅m)
 volatile bool global_data_updated = false;      // Flag to indicate new data available
+
+// BSPD GLOBAL VARIABLES FOR TASK COMMUNICATION
+volatile bool global_rtd_button_state = false;  // RTD Button state from BSPD
+volatile bool global_rtm_active_state = false;  // RTM Active state from BSPD
+
+// DASHBOARD GLOBAL VARIABLES FOR TASK COMMUNICATION
+volatile bool global_dashboard_switch_state = false;  // Dashboard Switch state
+
+// FSAE READY TO DRIVE SYSTEM GLOBAL VARIABLES
+volatile bool global_ready_to_drive = false;         // Ready to Drive flag
+volatile bool global_brake_pressed = false;          // Brake sensor state
 
 /* USER CODE END PV */
 
@@ -151,6 +168,7 @@ void InverterProcessStart(void *argument);
 void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
 void AppsCalibrateStart(void *argument);
+void SafetyInputMonitorStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -241,6 +259,9 @@ int main(void)
 
   /* creation of AppsCalibrate */
   AppsCalibrateHandle = osThreadNew(AppsCalibrateStart, NULL, &AppsCalibrate_attributes);
+
+  /* creation of SafetyInputMonitor */
+  SafetyInputMonitorHandle = osThreadNew(SafetyInputMonitorStart, NULL, &SafetyInputMonitor_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -803,12 +824,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level - FSAE Buzzer (initially OFF) */
+  HAL_GPIO_WritePin(BUZZER_ACTIVE_GPIO_Port, BUZZER_ACTIVE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : USER_Btn_Pin */
   GPIO_InitStruct.Pin = USER_Btn_Pin;
@@ -837,7 +862,20 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(USB_OverCurrent_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
-
+  /* FSAE Safety System GPIO Configuration */
+  
+  /* Configure RTD Button and RTM Active as inputs with pull-up */
+  GPIO_InitStruct.Pin = RTD_BUTTON_Pin | RTM_ACTIVE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;  /* Pull-up for active-low signals */
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  
+  /* Configure Buzzer as output */
+  GPIO_InitStruct.Pin = BUZZER_ACTIVE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(BUZZER_ACTIVE_GPIO_Port, &GPIO_InitStruct);
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -931,6 +969,24 @@ void AppsCalibrateStart(void *argument)
 	vTaskDelete(NULL);
 
   /* USER CODE END AppsCalibrateStart */
+}
+
+/* USER CODE BEGIN Header_SafetyInputMonitorStart */
+/**
+* @brief Function implementing the SafetyInputMonitor thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_SafetyInputMonitorStart */
+void SafetyInputMonitorStart(void *argument)
+{
+  /* USER CODE BEGIN SafetyInputMonitorStart */
+  /* Infinite loop */
+  for(;;) {
+	  safetyInputMonitorProcess();
+	  osDelay(10);  // 10ms loop period
+  }
+  /* USER CODE END SafetyInputMonitorStart */
 }
 
 /**
