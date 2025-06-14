@@ -36,27 +36,32 @@ void appsVerifyProcess(void) {
     static uint32_t debug_counter = 0;
     debug_counter++;
 
-    if (HAL_ADC_Start(&hadc3) != HAL_OK) { Error_Handler(); }
+    if (HAL_ADC_Start(&hadc1) != HAL_OK) { Error_Handler(); }
 
-    if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) {
-        appsRaw1 = HAL_ADC_GetValue(&hadc3);
-        appsRaw2 = HAL_ADC_GetValue(&hadc3);
+    if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
+        appsRaw1 = HAL_ADC_GetValue(&hadc1);
+        appsRaw2 = HAL_ADC_GetValue(&hadc1);
+        HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
+        HAL_Delay(10);
+        HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
+        HAL_Delay(10);
     }
     else {
         appsRaw1 = 0;
         appsRaw2 = 0;
-        HAL_ADC_Stop(&hadc3); // stop the ADC if it timed out due to error
+        HAL_ADC_Stop(&hadc1); // stop the ADC if it timed out due to error
     }
 
     // FIXED: Convert raw values to 0.0-1.0 range properly
+
     appsConverted1 = (float)(appsRaw1 - appsRaw1Min) / (float)(appsRaw1Max - appsRaw1Min);
     appsConverted2 = (float)(appsRaw2 - appsRaw2Min) / (float)(appsRaw2Max - appsRaw2Min);
 
     // Clamp to valid range (safety check)
     if (appsConverted1 < 0.0f) appsConverted1 = 0.0f;
-    if (appsConverted1 > 1.0f) appsConverted1 = 1.0f;
+    if (appsConverted1 > 1.0f) appsConverted1 = 0.0f;
     if (appsConverted2 < 0.0f) appsConverted2 = 0.0f;
-    if (appsConverted2 > 1.0f) appsConverted2 = 1.0f;
+    if (appsConverted2 > 1.0f) appsConverted2 = 0.0f;
 
     // FIXED: Use float math for sensor agreement check
     float diff = (appsConverted1 > appsConverted2) ?

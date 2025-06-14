@@ -66,6 +66,7 @@ void VCU_Init(void)
   /* Send initial disable message to ensure inverter is off */
 //  HAL_ADC_Start(&hadc3);
   VCU_DisableInverter();
+  VCU_ClearInverterFaults();
 //  HAL_Delay(1000);
   VCU_EnableInverter();
 //  HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
@@ -213,12 +214,10 @@ static void VCU_TransmitCANMessage(uint16_t torque, uint8_t direction, uint8_t i
     }
   }
   else {
-    // Success - flash success LED pattern
-    // DISABLED: LED debugging moved to ADC verify task only
-    // HAL_GPIO_TogglePin(GPIOB, 14);
-    // HAL_Delay(10);
-    // HAL_GPIO_TogglePin(GPIOB, 14);
-    // HAL_Delay(10);
+     HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
+     HAL_Delay(10);
+     HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
+     HAL_Delay(10);
   }
 }
 
@@ -230,7 +229,6 @@ void VCU_EnableInverter(void)
 {
   /* Set system to active */
   vcuActive = 1;
-
   /* Send enable message with zero torque command */
   VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
 
@@ -255,4 +253,56 @@ void VCU_DisableInverter(void)
   VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_DISABLE);
 
   /* Visual indication - could toggle an LED here */
+}
+
+
+void VCU_ClearInverterFaults(void)
+{
+	  CAN_TxHeaderTypeDef txHeader;
+	  uint8_t txData[8];
+	  uint32_t txMailbox;
+	  HAL_StatusTypeDef status;
+
+	  /* Configure transmission */
+	  txHeader.StdId = VCU_INVERTER_CLEAR_ID;
+	  txHeader.ExtId = 0;
+	  txHeader.IDE = CAN_ID_STD;
+	  txHeader.RTR = CAN_RTR_DATA;
+	  txHeader.DLC = 8;
+	  txHeader.TransmitGlobalTime = DISABLE;
+
+	  txData[0] = (uint8_t) 0x14;
+	  txData[1] = 0;
+
+	  txData[2] = 1;
+	  txData[3] = 0;
+
+	  /* Direction and inverter control */
+	  txData[4] = 0;
+	  txData[5] = 0;
+
+	  /* Torque limits (using default) */
+	  txData[6] = 0;
+	  txData[7] = 0;
+
+	  /* Check if mailboxes are available */
+	  if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 0) {
+	    // No free mailboxes - abort oldest message and try again
+	    HAL_CAN_AbortTxRequest(&hcan1, CAN_TX_MAILBOX0);
+	    HAL_CAN_AbortTxRequest(&hcan1, CAN_TX_MAILBOX1);
+	    HAL_CAN_AbortTxRequest(&hcan1, CAN_TX_MAILBOX2);
+	  }
+
+	  /* Send CAN message */
+	  status = HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox);
+
+	  if (status != HAL_OK) {
+	    // CAN transmission failed
+	    uint32_t errorCode = HAL_CAN_GetError(&hcan1);
+
+	    // Try to abort and retry once
+	    if (HAL_CAN_AbortTxRequest(&hcan1, txMailbox) != HAL_OK) {
+	      Error_Handler();
+	    }
+	  }
 }

@@ -6,6 +6,7 @@ extern uint32_t appsRaw1Min;
 extern uint32_t appsRaw1Max;
 extern uint32_t appsRaw2Min;
 extern uint32_t appsRaw2Max;
+extern ADC_HandleTypeDef hadc1;
 extern CAN_HandleTypeDef hcan1;
 
 int v1;
@@ -66,23 +67,23 @@ void appsCalibrate(void) {
 		// It's good practice to stop if coming from a different mode or if errors occurred previously,
 		// but if ContinuousConvMode is DISABLED, the ADC will stop after one sequence.
 		// So, this HAL_ADC_Stop() might be redundant but is harmless.
-		HAL_ADC_Stop(&hadc3); // Stop any ongoing conversion before starting a new sequence
+		HAL_ADC_Stop(&hadc1); // Stop any ongoing conversion before starting a new sequence
 
 		// Start the ADC conversion. This will trigger a conversion for all channels
 		// configured in the sequence (ADC_CHANNEL_5 then ADC_CHANNEL_7).
-		if (HAL_ADC_Start(&hadc3) != HAL_OK) {
+		if (HAL_ADC_Start(&hadc1) != HAL_OK) {
 			// Handle error - e.g., call Error_Handler(), perhaps break the loop
 			Error_Handler();
 			break; // Exit calibration loop on error
 		}
 
 		// Poll for conversion completion of the entire sequence of NbrOfConversion channels.
-		if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) { // 10ms timeout should be ample
+		if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) { // 10ms timeout should be ample
 			// Get the converted values.
 			// HAL_ADC_GetValue() will return the channels in the order they were ranked
 			// during ADC initialization (Rank 1 then Rank 2).
-			v1 = HAL_ADC_GetValue(&hadc3); // Get value for Rank 1 (ADC_CHANNEL_5)
-			v2 = HAL_ADC_GetValue(&hadc3); // Get value for Rank 2 (ADC_CHANNEL_7)
+			v1 = HAL_ADC_GetValue(&hadc1); // Get value for Rank 1 (ADC_CHANNEL_5)
+			v2 = HAL_ADC_GetValue(&hadc1); // Get value for Rank 2 (ADC_CHANNEL_7)
 
 			// Update maximum values
 			if (v1 > appsRaw1Max) appsRaw1Max = v1;
@@ -94,13 +95,13 @@ void appsCalibrate(void) {
 			// For calibration, returning 0 or a special value might be useful.
 			v1 = 0; // Indicate error
 			v2 = 0; // Indicate error
-			HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out or had an error
+			HAL_ADC_Stop(&hadc1); // Stop the ADC if it timed out or had an error
 			// Optionally, break the loop:
 			// break;
 		}
 
 		// If ContinuousConvMode is DISABLED, the ADC stops itself after completing the sequence.
-		// No need for an explicit HAL_ADC_Stop(&hadc3) here after the poll, as the next loop iteration
+		// No need for an explicit HAL_ADC_Stop(&hadc1) here after the poll, as the next loop iteration
 		// will call HAL_ADC_Stop() again before starting.
 
 		// Add a small delay to avoid busy-waiting too aggressively and allow other
@@ -128,16 +129,16 @@ void appsCalibrate(void) {
 
 	t0 = HAL_GetTick();
 	while (HAL_GetTick() - t0 < 3000) {
-		HAL_ADC_Stop(&hadc3); // Stop any ongoing conversion before starting a new sequence
+		HAL_ADC_Stop(&hadc1); // Stop any ongoing conversion before starting a new sequence
 
-		if (HAL_ADC_Start(&hadc3) != HAL_OK) {
+		if (HAL_ADC_Start(&hadc1) != HAL_OK) {
 			Error_Handler();
 			break; // Exit calibration loop on error
 		}
 
-		if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) {
-			v1 = HAL_ADC_GetValue(&hadc3); // Get value for Rank 1 (Channel 5)
-			v2 = HAL_ADC_GetValue(&hadc3); // Get value for Rank 2 (Channel 7)
+		if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
+			v1 = HAL_ADC_GetValue(&hadc1); // Get value for Rank 1 (Channel 5)
+			v2 = HAL_ADC_GetValue(&hadc1); // Get value for Rank 2 (Channel 7)
 
 			// Update min values (CORRECTED LOGIC)
 			if (v1 < appsRaw1Min) appsRaw1Min = v1;
@@ -146,7 +147,7 @@ void appsCalibrate(void) {
 		else {
 			v1 = 0; // Indicate error
 			v2 = 0; // Indicate error
-			HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out
+			HAL_ADC_Stop(&hadc1); // Stop the ADC if it timed out
 			// Optionally, break the loop:
 			// break;
 		}

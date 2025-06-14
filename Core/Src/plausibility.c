@@ -12,11 +12,11 @@ extern volatile float global_accel_position;
 extern volatile float global_torque_command;
 extern volatile bool global_data_updated;
 
-#define NUM_POINTS 7
+#define NUM_POINTS 6
 
 // This is basically the look up tables for the pedal map (VERY BASIC), uses linear interpolation for values inbetween ones set in LUT
-float pedal_table[NUM_POINTS] = {0.25f, 0.35f, 0.5f, 0.65f, 0.75f, 0.95f, 1.0f};
-float torque_table[NUM_POINTS] = {0.0f, 15.0f, 25.0f, 30.0f, 65.0f, 75.0f, 75.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
+float pedal_table[NUM_POINTS] = {0.15f, 0.35f, 0.5f, 0.65f, 0.75f, 0.95f};
+float torque_table[NUM_POINTS] = {0.0f, 15.0f, 25.0f, 30.0f, 65.0f, 75.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
 
 float accel;
 float torque;
