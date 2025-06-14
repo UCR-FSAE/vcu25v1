@@ -62,7 +62,7 @@ void brakeVerifyProcess(void) {
 	}
 
 	//One more check if ADC outside of range
-	if (brakeRaw1 > ADC_MAX_VALUE || brakeRaw2 > ADC_MAX_VALUE || brakeRaw1 < 0 || brakeRaw2 < 0) {
+	if (brakeRaw1 > ADC_MAX_VALUE || brakeRaw2 > ADC_MAX_VALUE || brakeRaw1 < brakesRaw1Min || brakeRaw2 < brakesRaw1Max) {
 		// outside of range so set to 0 and send fault
 		brakeRaw1 = 0;
 		brakeRaw2 = 0;
