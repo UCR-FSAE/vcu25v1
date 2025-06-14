@@ -36,47 +36,47 @@ extern osMessageQueueId_t torqueQueueHandle;
 extern osMessageQueueId_t appsQueueHandle;
 
 
-float BrakePos() {
-	// Fixed: Read brake sensors properly
-	uint32_t brakeRaw1_local = 0;
-	uint32_t brakeRaw2_local = 0;
-	
-	if (HAL_ADC_PollForConversion(&hadc1, 5) == HAL_OK) {
-		brakeRaw1_local = HAL_ADC_GetValue(&hadc1);
-	}
-	else {
-		// throw fault - could set a brake fault flag here
-		return 0.0f;  // Safe default
-	}
-	
-	if (HAL_ADC_PollForConversion(&hadc1, 6) == HAL_OK) {
-		brakeRaw2_local = HAL_ADC_GetValue(&hadc1);
-	}
-	else {
-		// throw fault - could set a brake fault flag here
-		return 0.0f;  // Safe default
-	}
-
-	// Check if calibration data is valid
-	if (brakesRaw1Max == brakesRaw1Min || brakesRaw2Max == brakesRaw2Min) {
-		// Not calibrated yet or invalid calibration
-		return 0.0f;  // Safe default
-	}
-
-	// Calculate brake position as percentage
-	float percent1 = (float)(brakeRaw1_local - brakesRaw1Min) / (float)(brakesRaw1Max - brakesRaw1Min);
-	float percent2 = (float)(brakeRaw2_local - brakesRaw2Min) / (float)(brakesRaw2Max - brakesRaw2Min);
-
-	// Clamp to valid range
-	if (percent1 < 0.0f) percent1 = 0.0f;
-	if (percent1 > 1.0f) percent1 = 1.0f;
-	if (percent2 < 0.0f) percent2 = 0.0f;
-	if (percent2 > 1.0f) percent2 = 1.0f;
-
-	// Return average of both sensors
-	float percentAvg = (percent1 + percent2) / 2.0f;
-	return percentAvg;
-}
+//float BrakePos() {
+//	// Fixed: Read brake sensors properly
+//	uint32_t brakeRaw1_local = 0;
+//	uint32_t brakeRaw2_local = 0;
+//
+//	if (HAL_ADC_PollForConversion(&hadc1, 5) == HAL_OK) {
+//		brakeRaw1_local = HAL_ADC_GetValue(&hadc1);
+//	}
+//	else {
+//		// throw fault - could set a brake fault flag here
+//		return 0.0f;  // Safe default
+//	}
+//
+//	if (HAL_ADC_PollForConversion(&hadc1, 6) == HAL_OK) {
+//		brakeRaw2_local = HAL_ADC_GetValue(&hadc1);
+//	}
+//	else {
+//		// throw fault - could set a brake fault flag here
+//		return 0.0f;  // Safe default
+//	}
+//
+//	// Check if calibration data is valid
+//	if (brakesRaw1Max == brakesRaw1Min || brakesRaw2Max == brakesRaw2Min) {
+//		// Not calibrated yet or invalid calibration
+//		return 0.0f;  // Safe default
+//	}
+//
+//	// Calculate brake position as percentage
+//	float percent1 = (float)(brakeRaw1_local - brakesRaw1Min) / (float)(brakesRaw1Max - brakesRaw1Min);
+//	float percent2 = (float)(brakeRaw2_local - brakesRaw2Min) / (float)(brakesRaw2Max - brakesRaw2Min);
+//
+//	// Clamp to valid range
+//	if (percent1 < 0.0f) percent1 = 0.0f;
+//	if (percent1 > 1.0f) percent1 = 1.0f;
+//	if (percent2 < 0.0f) percent2 = 0.0f;
+//	if (percent2 > 1.0f) percent2 = 1.0f;
+//
+//	// Return average of both sensors
+//	float percentAvg = (percent1 + percent2) / 2.0f;
+//	return percentAvg;
+//}
 
 /*
  * Plausibility Check:
