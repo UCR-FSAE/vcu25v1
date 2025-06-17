@@ -6,6 +6,7 @@
  */
 
 #include "plausibility.h"
+#include "vcu.h"
 
 // EXTERN DECLARATIONS FOR GLOBAL VARIABLES
 extern volatile float global_accel_position;
@@ -13,7 +14,6 @@ extern volatile float global_brake_position;
 extern volatile float global_torque_command;
 extern volatile bool global_accel_data_updated;
 extern volatile bool global_brake_data_updated;
-extern volatile bool global_plausibility_check;
 
 #define NUM_POINTS 6
 
@@ -27,7 +27,6 @@ float torque;
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc3;
-extern bool inverterFault;
 
 //extern uint32_t appsRaw1;  // Get the raw value
 extern uint32_t brakesRaw1Min;
@@ -86,21 +85,21 @@ extern bool brakeTrigger;
 
 /*
  * Plausibility Check:
- * Looks at two pedal positions and if both abosve 5%, then return 0, else return 1
+ * Looks at two pedal positions and if both above 5%, then return 0, else return 1
+ * Also incorporates BSPD safety checks for RTD Button and RTM Active signals
  */
 bool PlausibilityCheck(float accel, float brake) {
 
+	// Check if both pedals are pressed simultaneously (original safety check)
 	if (accel > 0.05 && brake > 0.05) {
 		// disable the inverter flag
 //		inverterFault = 1;
-		global_plausibility_check = false;	//have fault
 		return false;
 	}
 
 	else {
 		// continue
-		inverterFault = 0;
-		global_plausibility_check = true;	//no fault
+//		inverterFault = 0;
 		return true;
 	}
 
@@ -155,14 +154,12 @@ int MapTorque() {
     accel = global_accel_position;
     brake = global_brake_position;
     
-    // Reset the update flag (optional - can be used for detecting new data)
+    // Reset the update flags (optional - can be used for detecting new data)
     global_accel_data_updated = false;
     global_brake_data_updated = false;
 
-    //check plausibility before updating torque
-    // this will cause issue, fix later
-    //float torque = PlausibilityCheck(accel, brake) ? getTorqueFromPedal(accel) : 0; //get torque if true set as 0 if false
     float torque = getTorqueFromPedal(accel);
+
     // Store torque in global variable instead of queue
     global_torque_command = torque;
 

@@ -110,6 +110,13 @@ const osThreadAttr_t PedalCalibratio_attributes = {
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for SafetyInputMonitor */
+osThreadId_t SafetyInputMonitorHandle;
+const osThreadAttr_t SafetyInputMonitor_attributes = {
+  .name = "SafetyInputMonitor",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* Definitions for ADCDataReady */
 osSemaphoreId_t ADCDataReadyHandle;
 const osSemaphoreAttr_t ADCDataReady_attributes = {
@@ -145,6 +152,17 @@ volatile bool global_brake_data_updated = false;      // Flag to indicate new da
 volatile bool global_brake_isShort = false;		// Flag to see if brake shorting or open circuit
 volatile bool global_plausibility_check = true;	  // Flag to check plausibility
 
+// BSPD GLOBAL VARIABLES FOR TASK COMMUNICATION
+volatile bool global_rtd_button_state = false;  // RTD Button state from BSPD
+volatile bool global_rtm_active_state = false;  // RTM Active state from BSPD
+
+// DASHBOARD GLOBAL VARIABLES FOR TASK COMMUNICATION
+volatile bool global_dashboard_switch_state = false;  // Dashboard Switch state
+
+// FSAE READY TO DRIVE SYSTEM GLOBAL VARIABLES
+volatile bool global_ready_to_drive = false;         // Ready to Drive flag
+volatile bool global_brake_pressed = false;          // Brake sensor state
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -164,6 +182,7 @@ void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
 void BrakesVerifyStart(void *argument);
 void PedalCalStart(void *argument);
+void SafetyInputMonitorStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -257,6 +276,9 @@ int main(void)
 
   /* creation of PedalCalibratio */
   PedalCalibratioHandle = osThreadNew(PedalCalStart, NULL, &PedalCalibratio_attributes);
+
+  /* creation of SafetyInputMonitor */
+  SafetyInputMonitorHandle = osThreadNew(SafetyInputMonitorStart, NULL, &SafetyInputMonitor_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -819,12 +841,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level - FSAE Buzzer (initially OFF) */
+  HAL_GPIO_WritePin(BUZZER_ACTIVE_GPIO_Port, BUZZER_ACTIVE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : USER_Btn_Pin */
   GPIO_InitStruct.Pin = USER_Btn_Pin;
@@ -853,7 +879,20 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(USB_OverCurrent_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
-
+  /* FSAE Safety System GPIO Configuration */
+  
+  /* Configure RTD Button and RTM Active as inputs with pull-up */
+  GPIO_InitStruct.Pin = RTD_BUTTON_Pin | RTM_ACTIVE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;  /* Pull-up for active-low signals */
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+  
+  /* Configure Buzzer as output */
+  GPIO_InitStruct.Pin = BUZZER_ACTIVE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(BUZZER_ACTIVE_GPIO_Port, &GPIO_InitStruct);
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -950,6 +989,24 @@ void PedalCalStart(void *argument)
 	osDelay(1);
 	vTaskDelete(NULL);
   /* USER CODE END PedalCalStart */
+}
+
+/* USER CODE BEGIN Header_SafetyInputMonitorStart */
+/**
+* @brief Function implementing the SafetyInputMonitor thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_SafetyInputMonitorStart */
+void SafetyInputMonitorStart(void *argument)
+{
+  /* USER CODE BEGIN SafetyInputMonitorStart */
+  /* Infinite loop */
+  for(;;) {
+	  safetyInputMonitorProcess();
+	  osDelay(10);  // 10ms loop period
+  }
+  /* USER CODE END SafetyInputMonitorStart */
 }
 
 /**
