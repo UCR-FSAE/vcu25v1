@@ -26,8 +26,6 @@ extern uint32_t brakesRaw1Max;
 extern uint32_t brakesConverted;
 
 static uint32_t brakeRaw1 = 0;
-static uint32_t brakeRaw2 = 0;
-
 
 void brakeVerifyProcess(void) {
 

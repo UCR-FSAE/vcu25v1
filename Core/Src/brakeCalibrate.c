@@ -43,19 +43,24 @@ void brakeCalibrate(void) {
 	brakesRaw1Min = 0xFFFF;
 	brakesRaw1Max = 0;
 
+
+	HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+
 	// send begin max calibration
 	// sends a calibration message to the dashboard for screen toggle
 	if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox) != HAL_OK) {
 		if (HAL_CAN_AbortTxRequest(&hcan1, txMailbox) != HAL_OK) { Error_Handler(); }
 	}
-	else {
-		HAL_GPIO_TogglePin(GPIOB, 14);
-		HAL_Delay(10);
-		HAL_GPIO_TogglePin(GPIOB, 14);
-	}
+//	else {
+//		HAL_GPIO_TogglePin(GPIOB, 14);
+//		HAL_Delay(10);
+//		HAL_GPIO_TogglePin(GPIOB, 14);
+//	}
 
-	HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
-	HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
+    HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_SET);
 
 	uint32_t t0 = HAL_GetTick(); // ms since power-up
 	// for 3000 ms window
@@ -104,9 +109,8 @@ void brakeCalibrate(void) {
 	}
 
 	// send begin min calibraion
-	HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
-	HAL_GPIO_TogglePin(GPIOB, LD3_Pin);
-
+    HAL_GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_SET);
 
 	txData[1] = 0;
 	txData[2] = 1;
@@ -114,13 +118,13 @@ void brakeCalibrate(void) {
 	if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox) != HAL_OK) {
 		if (HAL_CAN_AbortTxRequest(&hcan1, txMailbox) != HAL_OK) { Error_Handler(); }
 	}
-	else {
-		HAL_GPIO_TogglePin(GPIOB, 14);
-		HAL_Delay(10);
-		HAL_GPIO_TogglePin(GPIOB, 14);
-	}
+//	else {
+//		HAL_GPIO_TogglePin(GPIOB, 14);
+//		HAL_Delay(10);
+//		HAL_GPIO_TogglePin(GPIOB, 14);
+//	}
 
-	HAL_GPIO_TogglePin(GPIOB, LD3_Pin);
+//	HAL_GPIO_TogglePin(GPIOB, LD3_Pin);
 
 	t0 = HAL_GetTick();
 	while (HAL_GetTick() - t0 < 3000) {
@@ -147,7 +151,9 @@ void brakeCalibrate(void) {
 
 	}
 
-	HAL_GPIO_TogglePin(GPIOB, LD3_Pin);
+
+    HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
 
 	txData[0] = 1;
 	txData[1] = 0;
@@ -156,11 +162,11 @@ void brakeCalibrate(void) {
 	if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox) != HAL_OK) {
 		if (HAL_CAN_AbortTxRequest(&hcan1, txMailbox) != HAL_OK) { Error_Handler(); }
 	}
-	else {
-		HAL_GPIO_TogglePin(GPIOB, 14);
-		HAL_Delay(10);
-		HAL_GPIO_TogglePin(GPIOB, 14);
-	}
+//	else {
+//		HAL_GPIO_TogglePin(GPIOB, 14);
+//		HAL_Delay(10);
+//		HAL_GPIO_TogglePin(GPIOB, 14);
+//	}
 
 	return;
 }
