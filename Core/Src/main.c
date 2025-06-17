@@ -96,13 +96,6 @@ const osThreadAttr_t AppsVerify_attributes = {
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for AppsCalibrate */
-osThreadId_t AppsCalibrateHandle;
-const osThreadAttr_t AppsCalibrate_attributes = {
-  .name = "AppsCalibrate",
-  .stack_size = 384 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
-};
 /* Definitions for BrakesVerify */
 osThreadId_t BrakesVerifyHandle;
 const osThreadAttr_t BrakesVerify_attributes = {
@@ -110,12 +103,12 @@ const osThreadAttr_t BrakesVerify_attributes = {
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for BrakesCalibrate */
-osThreadId_t BrakesCalibrateHandle;
-const osThreadAttr_t BrakesCalibrate_attributes = {
-  .name = "BrakesCalibrate",
+/* Definitions for PedalCalibratio */
+osThreadId_t PedalCalibratioHandle;
+const osThreadAttr_t PedalCalibratio_attributes = {
+  .name = "PedalCalibratio",
   .stack_size = 384 * 4,
-  .priority = (osPriority_t) osPriorityAboveNormal7,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for ADCDataReady */
 osSemaphoreId_t ADCDataReadyHandle;
@@ -169,9 +162,8 @@ static void MX_ADC3_Init(void);
 void InverterProcessStart(void *argument);
 void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
-void AppsCalibrateStart(void *argument);
 void BrakesVerifyStart(void *argument);
-void BrakesCalibrateStart(void *argument);
+void PedalCalStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -260,14 +252,11 @@ int main(void)
   /* creation of AppsVerify */
   AppsVerifyHandle = osThreadNew(AppsVerifyStart, NULL, &AppsVerify_attributes);
 
-  /* creation of AppsCalibrate */
-  AppsCalibrateHandle = osThreadNew(AppsCalibrateStart, NULL, &AppsCalibrate_attributes);
-
   /* creation of BrakesVerify */
   BrakesVerifyHandle = osThreadNew(BrakesVerifyStart, NULL, &BrakesVerify_attributes);
 
-  /* creation of BrakesCalibrate */
-  BrakesCalibrateHandle = osThreadNew(BrakesCalibrateStart, NULL, &BrakesCalibrate_attributes);
+  /* creation of PedalCalibratio */
+  PedalCalibratioHandle = osThreadNew(PedalCalStart, NULL, &PedalCalibratio_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -940,26 +929,6 @@ void AppsVerifyStart(void *argument)
   /* USER CODE END AppsVerifyStart */
 }
 
-/* USER CODE BEGIN Header_AppsCalibrateStart */
-/**
-* @brief Function implementing the AppsCalibrate thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_AppsCalibrateStart */
-void AppsCalibrateStart(void *argument)
-{
-  /* USER CODE BEGIN AppsCalibrateStart */
-
-	//calibrates apps
-	appsCalibrate();
-
-	// deletes task to ensure single execution
-	vTaskDelete(NULL);
-
-  /* USER CODE END AppsCalibrateStart */
-}
-
 /* USER CODE BEGIN Header_BrakesVerifyStart */
 /**
 * @brief Function implementing the BrakesVerify thread.
@@ -969,29 +938,34 @@ void AppsCalibrateStart(void *argument)
 /* USER CODE END Header_BrakesVerifyStart */
 void BrakesVerifyStart(void *argument)
 {
-	/* USER CODE BEGIN BrakesVerifyStart */
+  /* USER CODE BEGIN BrakesVerifyStart */
 	/* Infinite loop */
 	for(;;)
 	{
-	brakeVerifyProcess();
-	osDelay(1);
+		brakeVerifyProcess();
+		osDelay(1);
 	}
-/* USER CODE END BrakesVerifyStart */
+  /* USER CODE END BrakesVerifyStart */
 }
 
-/* USER CODE BEGIN Header_BrakesCalibrateStart */
+/* USER CODE BEGIN Header_PedalCalStart */
 /**
-* @brief Function implementing the BrakesCalibrate thread.
+* @brief Function implementing the PedalCalibratio thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_BrakesCalibrateStart */
-void BrakesCalibrateStart(void *argument)
+/* USER CODE END Header_PedalCalStart */
+void PedalCalStart(void *argument)
 {
-  /* USER CODE BEGIN BrakesCalibrateStart */
-  /* Infinite loop */
+  /* USER CODE BEGIN PedalCalStart */
+	appsCalibrate();
+	osDelay(1);
 	brakeCalibrate();
-	vTaskDelete(NULL); /* USER CODE END BrakesCalibrateStart */
+	osDelay(1);
+
+	vTaskDelete(NULL);
+
+  /* USER CODE END PedalCalStart */
 }
 
 /**
