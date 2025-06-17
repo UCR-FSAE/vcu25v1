@@ -99,12 +99,12 @@ static void VCU_ProcessAnalogInputs(void)
   }
 
   /* Check brake pedal status - if pressed, set torque to zero */
-  if (brakeRaw > BRAKE_THRESHOLD)
-  {
-	torqueCommand = 0;
-	VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
-	return;
-  }
+//  if (brakeRaw > BRAKE_THRESHOLD)
+//  {
+//	torqueCommand = 0;
+//	VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
+//	return;
+//  }
   
   // Read from global variable instead of queue
    float received_torque = global_torque_command;

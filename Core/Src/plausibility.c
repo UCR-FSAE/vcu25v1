@@ -161,8 +161,8 @@ int MapTorque() {
 
     //check plausibility before updating torque
     // this will cause issue, fix later
-    float torque = PlausibilityCheck(accel, brake) ? getTorqueFromPedal(accel) : 0; //get torque if true set as 0 if false
-
+    //float torque = PlausibilityCheck(accel, brake) ? getTorqueFromPedal(accel) : 0; //get torque if true set as 0 if false
+    float torque = getTorqueFromPedal(accel);
     // Store torque in global variable instead of queue
     global_torque_command = torque;
 
