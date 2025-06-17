@@ -23,7 +23,7 @@ extern "C" {
 // function prototypes
 void brakeVerifyProcess();
 
-extern ADC_HandleTypeDef hadc1;  /* ADC handle from main.c */
+extern ADC_HandleTypeDef hadc3;  /* ADC handle from main.c */
 extern osMessageQueueId_t appsQueueHandle;
 
 #ifdef __cplusplus

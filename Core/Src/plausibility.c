@@ -39,6 +39,8 @@ extern uint32_t brakesConverted;
 extern osMessageQueueId_t torqueQueueHandle;
 extern osMessageQueueId_t appsQueueHandle;
 
+extern bool brakeTrigger;
+
 
 //float BrakePos() {
 //	// Fixed: Read brake sensors properly
@@ -158,6 +160,7 @@ int MapTorque() {
     global_brake_data_updated = false;
 
     //check plausibility before updating torque
+    // this will cause issue, fix later
     float torque = PlausibilityCheck(accel, brake) ? getTorqueFromPedal(accel) : 0; //get torque if true set as 0 if false
 
     // Store torque in global variable instead of queue

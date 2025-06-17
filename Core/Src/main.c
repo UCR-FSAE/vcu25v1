@@ -103,6 +103,20 @@ const osThreadAttr_t AppsCalibrate_attributes = {
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for BrakesVerify */
+osThreadId_t BrakesVerifyHandle;
+const osThreadAttr_t BrakesVerify_attributes = {
+  .name = "BrakesVerify",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for BrakesCalibrate */
+osThreadId_t BrakesCalibrateHandle;
+const osThreadAttr_t BrakesCalibrate_attributes = {
+  .name = "BrakesCalibrate",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal7,
+};
 /* Definitions for ADCDataReady */
 osSemaphoreId_t ADCDataReadyHandle;
 const osSemaphoreAttr_t ADCDataReady_attributes = {
@@ -127,6 +141,7 @@ volatile uint32_t adcResults[ADC_NUM_CHANNELS]; // Use volatile because DMA writ
 
 bool pedalFault = 0;
 bool inverterFault = 0;
+bool brakeTrigger = 0;
 
 // NEW GLOBAL VARIABLES FOR TASK COMMUNICATION (replacing queues)
 volatile float global_accel_position = 0.0f;    // Shared between appsVerify and plausibility (0.0-1.0 range)
@@ -155,6 +170,8 @@ void InverterProcessStart(void *argument);
 void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
 void AppsCalibrateStart(void *argument);
+void BrakesVerifyStart(void *argument);
+void BrakesCalibrateStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -245,6 +262,12 @@ int main(void)
 
   /* creation of AppsCalibrate */
   AppsCalibrateHandle = osThreadNew(AppsCalibrateStart, NULL, &AppsCalibrate_attributes);
+
+  /* creation of BrakesVerify */
+  BrakesVerifyHandle = osThreadNew(BrakesVerifyStart, NULL, &BrakesVerify_attributes);
+
+  /* creation of BrakesCalibrate */
+  BrakesCalibrateHandle = osThreadNew(BrakesCalibrateStart, NULL, &BrakesCalibrate_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -471,7 +494,7 @@ static void MX_ADC3_Init(void)
   hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc3.Init.NbrOfConversion = 1;
   hadc3.Init.DMAContinuousRequests = DISABLE;
-  hadc3.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc3) != HAL_OK)
   {
     Error_Handler();
@@ -479,7 +502,7 @@ static void MX_ADC3_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Channel = ADC_CHANNEL_7;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
@@ -935,6 +958,40 @@ void AppsCalibrateStart(void *argument)
 	vTaskDelete(NULL);
 
   /* USER CODE END AppsCalibrateStart */
+}
+
+/* USER CODE BEGIN Header_BrakesVerifyStart */
+/**
+* @brief Function implementing the BrakesVerify thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_BrakesVerifyStart */
+void BrakesVerifyStart(void *argument)
+{
+	/* USER CODE BEGIN BrakesVerifyStart */
+	/* Infinite loop */
+	for(;;)
+	{
+	brakeVerifyProcess();
+	osDelay(1);
+	}
+/* USER CODE END BrakesVerifyStart */
+}
+
+/* USER CODE BEGIN Header_BrakesCalibrateStart */
+/**
+* @brief Function implementing the BrakesCalibrate thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_BrakesCalibrateStart */
+void BrakesCalibrateStart(void *argument)
+{
+  /* USER CODE BEGIN BrakesCalibrateStart */
+  /* Infinite loop */
+	brakeCalibrate();
+	vTaskDelete(NULL); /* USER CODE END BrakesCalibrateStart */
 }
 
 /**
