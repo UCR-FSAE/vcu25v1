@@ -99,7 +99,7 @@ bool PlausibilityCheck(float accel, float brake) {
 
 	else {
 		// continue
-		inverterFault = 0;
+//		inverterFault = 0;
 		return true;
 	}
 
