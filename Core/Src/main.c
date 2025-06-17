@@ -873,10 +873,8 @@ void InverterProcessStart(void *argument)
   /* USER CODE BEGIN 5 */
   VCU_Init();
   /* Infinite loop */
-  for(;;)
-  {
+  for(;;) {
 	  VCU_Process();
-//	  HAL_Delay(10);
 	  osDelay(1);
   }
   /* USER CODE END 5 */
@@ -894,11 +892,8 @@ void PlausibilityStart(void *argument)
   /* USER CODE BEGIN PlausibilityStart */
   /* Infinite loop */
   for(;;) {
-
 	  MapTorque();
-
 	  osDelay(1);
-    // TESTINNGGG HELLLOOOO
   }
   /* USER CODE END PlausibilityStart */
 }
@@ -913,17 +908,9 @@ void PlausibilityStart(void *argument)
 void AppsVerifyStart(void *argument)
 {
   /* USER CODE BEGIN AppsVerifyStart */
-//	const TickType_t period = pdMS_TO_TICKS(5);      /* 5 ms loop     */
-//	TickType_t lastWake = xTaskGetTickCount();
-
 	/* Infinite loop */
-	for(;;)
-	{
-
-//	    if (osSemaphoreAcquire(ADCDataReadyHandle, osWaitForever) == osOK) {
+	for(;;) {
 		appsVerifyProcess();
-//	    }
-//		vTaskDelayUntil(&lastWake, period);
 		osDelay(1);
 	}
   /* USER CODE END AppsVerifyStart */
@@ -940,8 +927,7 @@ void BrakesVerifyStart(void *argument)
 {
   /* USER CODE BEGIN BrakesVerifyStart */
 	/* Infinite loop */
-	for(;;)
-	{
+	for(;;) {
 		brakeVerifyProcess();
 		osDelay(1);
 	}
@@ -951,7 +937,7 @@ void BrakesVerifyStart(void *argument)
 /* USER CODE BEGIN Header_PedalCalStart */
 /**
 * @brief Function implementing the PedalCalibratio thread.
-* @param argument: Not used
+* @param argument: Not usedS
 * @retval None
 */
 /* USER CODE END Header_PedalCalStart */
@@ -962,9 +948,7 @@ void PedalCalStart(void *argument)
 	osDelay(1);
 	brakeCalibrate();
 	osDelay(1);
-
 	vTaskDelete(NULL);
-
   /* USER CODE END PedalCalStart */
 }
 
