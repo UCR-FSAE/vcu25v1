@@ -9,16 +9,20 @@
 
 // EXTERN DECLARATIONS FOR GLOBAL VARIABLES
 extern volatile float global_accel_position;
+extern volatile float global_brake_position;
 extern volatile float global_torque_command;
-extern volatile bool global_data_updated;
+extern volatile bool global_accel_data_updated;
+extern volatile bool global_brake_data_updated;
+extern volatile bool global_plausibility_check;
 
-#define NUM_POINTS 7
+#define NUM_POINTS 6
 
 // This is basically the look up tables for the pedal map (VERY BASIC), uses linear interpolation for values inbetween ones set in LUT
-float pedal_table[NUM_POINTS] = {0.25f, 0.35f, 0.5f, 0.65f, 0.75f, 0.95f, 1.0f};
-float torque_table[NUM_POINTS] = {0.0f, 15.0f, 25.0f, 30.0f, 65.0f, 75.0f, 75.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
+float pedal_table[NUM_POINTS] = {0.15f, 0.35f, 0.5f, 0.65f, 0.75f, 0.95f};
+float torque_table[NUM_POINTS] = {0.0f, 15.0f, 25.0f, 30.0f, 65.0f, 75.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
 
 float accel;
+float brake;
 float torque;
 
 extern ADC_HandleTypeDef hadc1;
@@ -34,6 +38,8 @@ extern uint32_t brakesRaw2Max;
 extern uint32_t brakesConverted;
 extern osMessageQueueId_t torqueQueueHandle;
 extern osMessageQueueId_t appsQueueHandle;
+
+extern bool brakeTrigger;
 
 
 //float BrakePos() {
@@ -87,16 +93,26 @@ bool PlausibilityCheck(float accel, float brake) {
 	if (accel > 0.05 && brake > 0.05) {
 		// disable the inverter flag
 //		inverterFault = 1;
+		global_plausibility_check = false;	//have fault
 		return false;
 	}
 
 	else {
 		// continue
 		inverterFault = 0;
+		global_plausibility_check = true;	//no fault
 		return true;
 	}
 
 }
+
+
+/*
+ *
+ * Over 25% Check
+ *
+ */
+
 
 /*
  * GetTorqueFromPedal:
@@ -137,11 +153,15 @@ int MapTorque() {
 
     // Read from global variable instead of queue
     accel = global_accel_position;
+    brake = global_brake_position;
     
     // Reset the update flag (optional - can be used for detecting new data)
-    global_data_updated = false;
+    global_accel_data_updated = false;
+    global_brake_data_updated = false;
 
-    float torque = getTorqueFromPedal(accel);
+    //check plausibility before updating torque
+    // this will cause issue, fix later
+    float torque = PlausibilityCheck(accel, brake) ? getTorqueFromPedal(accel) : 0; //get torque if true set as 0 if false
 
     // Store torque in global variable instead of queue
     global_torque_command = torque;
