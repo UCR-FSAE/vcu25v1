@@ -40,6 +40,8 @@ extern "C" {
 #include "vcu.h"
 #include "appsVerify.h"
 #include "appsCalibrate.h"
+#include "brakeVerify.h"
+#include "brakeCalibrate.h"
 #include "plausibility.h"
 #include "safetyInputMonitor.h"
 #include "task.h"          // For TaskHandle_t

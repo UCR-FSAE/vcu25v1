@@ -96,10 +96,17 @@ const osThreadAttr_t AppsVerify_attributes = {
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for AppsCalibrate */
-osThreadId_t AppsCalibrateHandle;
-const osThreadAttr_t AppsCalibrate_attributes = {
-  .name = "AppsCalibrate",
+/* Definitions for BrakesVerify */
+osThreadId_t BrakesVerifyHandle;
+const osThreadAttr_t BrakesVerify_attributes = {
+  .name = "BrakesVerify",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for PedalCalibratio */
+osThreadId_t PedalCalibratioHandle;
+const osThreadAttr_t PedalCalibratio_attributes = {
+  .name = "PedalCalibratio",
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
@@ -133,11 +140,17 @@ uint32_t appsRaw1;
 volatile uint32_t adcResults[ADC_NUM_CHANNELS]; // Use volatile because DMA writes to it
 
 bool pedalFault = 0;
+bool inverterFault = 0;
+bool brakeTrigger = 0;
 
 // NEW GLOBAL VARIABLES FOR TASK COMMUNICATION (replacing queues)
 volatile float global_accel_position = 0.0f;    // Shared between appsVerify and plausibility (0.0-1.0 range)
+volatile float global_brake_position = 0.0f;    // Shared between brakeVerify and plausibility (0.0-1.0 range)
 volatile float global_torque_command = 0.0f;    // Shared between plausibility and VCU (N⋅m)
-volatile bool global_data_updated = false;      // Flag to indicate new data available
+volatile bool global_accel_data_updated = false;      // Flag to indicate new data available
+volatile bool global_brake_data_updated = false;      // Flag to indicate new data available
+volatile bool global_brake_isShort = false;		// Flag to see if brake shorting or open circuit
+volatile bool global_plausibility_check = true;	  // Flag to check plausibility
 
 // BSPD GLOBAL VARIABLES FOR TASK COMMUNICATION
 volatile bool global_rtd_button_state = false;  // RTD Button state from BSPD
@@ -167,7 +180,8 @@ static void MX_ADC3_Init(void);
 void InverterProcessStart(void *argument);
 void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
-void AppsCalibrateStart(void *argument);
+void BrakesVerifyStart(void *argument);
+void PedalCalStart(void *argument);
 void SafetyInputMonitorStart(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -257,8 +271,11 @@ int main(void)
   /* creation of AppsVerify */
   AppsVerifyHandle = osThreadNew(AppsVerifyStart, NULL, &AppsVerify_attributes);
 
-  /* creation of AppsCalibrate */
-  AppsCalibrateHandle = osThreadNew(AppsCalibrateStart, NULL, &AppsCalibrate_attributes);
+  /* creation of BrakesVerify */
+  BrakesVerifyHandle = osThreadNew(BrakesVerifyStart, NULL, &BrakesVerify_attributes);
+
+  /* creation of PedalCalibratio */
+  PedalCalibratioHandle = osThreadNew(PedalCalStart, NULL, &PedalCalibratio_attributes);
 
   /* creation of SafetyInputMonitor */
   SafetyInputMonitorHandle = osThreadNew(SafetyInputMonitorStart, NULL, &SafetyInputMonitor_attributes);
@@ -367,13 +384,13 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 2;
   hadc1.Init.DMAContinuousRequests = DISABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
@@ -385,7 +402,16 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_5;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_6;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -471,15 +497,15 @@ static void MX_ADC3_Init(void)
   hadc3.Instance = ADC3;
   hadc3.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
   hadc3.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc3.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc3.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc3.Init.ContinuousConvMode = DISABLE;
   hadc3.Init.DiscontinuousConvMode = DISABLE;
   hadc3.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc3.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc3.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc3.Init.NbrOfConversion = 2;
+  hadc3.Init.NbrOfConversion = 1;
   hadc3.Init.DMAContinuousRequests = DISABLE;
-  hadc3.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc3) != HAL_OK)
   {
     Error_Handler();
@@ -487,18 +513,9 @@ static void MX_ADC3_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Channel = ADC_CHANNEL_7;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_7;
-  sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc3, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -895,10 +912,8 @@ void InverterProcessStart(void *argument)
   /* USER CODE BEGIN 5 */
   VCU_Init();
   /* Infinite loop */
-  for(;;)
-  {
+  for(;;) {
 	  VCU_Process();
-//	  HAL_Delay(10);
 	  osDelay(1);
   }
   /* USER CODE END 5 */
@@ -916,11 +931,8 @@ void PlausibilityStart(void *argument)
   /* USER CODE BEGIN PlausibilityStart */
   /* Infinite loop */
   for(;;) {
-
 	  MapTorque();
-
 	  osDelay(1);
-    // TESTINNGGG HELLLOOOO
   }
   /* USER CODE END PlausibilityStart */
 }
@@ -935,40 +947,48 @@ void PlausibilityStart(void *argument)
 void AppsVerifyStart(void *argument)
 {
   /* USER CODE BEGIN AppsVerifyStart */
-//	const TickType_t period = pdMS_TO_TICKS(5);      /* 5 ms loop     */
-//	TickType_t lastWake = xTaskGetTickCount();
-
 	/* Infinite loop */
-	for(;;)
-	{
-
-//	    if (osSemaphoreAcquire(ADCDataReadyHandle, osWaitForever) == osOK) {
+	for(;;) {
 		appsVerifyProcess();
-//	    }
-//		vTaskDelayUntil(&lastWake, period);
 		osDelay(1);
 	}
   /* USER CODE END AppsVerifyStart */
 }
 
-/* USER CODE BEGIN Header_AppsCalibrateStart */
+/* USER CODE BEGIN Header_BrakesVerifyStart */
 /**
-* @brief Function implementing the AppsCalibrate thread.
+* @brief Function implementing the BrakesVerify thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_AppsCalibrateStart */
-void AppsCalibrateStart(void *argument)
+/* USER CODE END Header_BrakesVerifyStart */
+void BrakesVerifyStart(void *argument)
 {
-  /* USER CODE BEGIN AppsCalibrateStart */
+  /* USER CODE BEGIN BrakesVerifyStart */
+	/* Infinite loop */
+	for(;;) {
+		brakeVerifyProcess();
+		osDelay(1);
+	}
+  /* USER CODE END BrakesVerifyStart */
+}
 
-	//calibrates apps
+/* USER CODE BEGIN Header_PedalCalStart */
+/**
+* @brief Function implementing the PedalCalibratio thread.
+* @param argument: Not usedS
+* @retval None
+*/
+/* USER CODE END Header_PedalCalStart */
+void PedalCalStart(void *argument)
+{
+  /* USER CODE BEGIN PedalCalStart */
 	appsCalibrate();
-
-	// deletes task to ensure single execution
+	osDelay(1);
+	brakeCalibrate();
+	osDelay(1);
 	vTaskDelete(NULL);
-
-  /* USER CODE END AppsCalibrateStart */
+  /* USER CODE END PedalCalStart */
 }
 
 /* USER CODE BEGIN Header_SafetyInputMonitorStart */

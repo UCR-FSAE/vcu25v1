@@ -27,10 +27,12 @@ void VCU_Init(void);
 void VCU_Process(void);
 void VCU_EnableInverter(void);
 void VCU_DisableInverter(void);
+void VCU_ClearInverterFaults(void);
 
 /* Private defines -----------------------------------------------------------*/
 /* CAN message IDs */
 #define VCU_INVERTER_COMMAND_ID 0x0C0
+#define VCU_INVERTER_CLEAR_ID 0x0C1
 
 /* Control bytes */
 #define VCU_DIRECTION_FORWARD 0x01

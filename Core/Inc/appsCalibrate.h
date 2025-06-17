@@ -15,8 +15,6 @@ extern "C" {
 // function prototypes
 void appsCalibrate();
 
-extern ADC_HandleTypeDef hadc3;  /* ADC handle from main.c */
-
 #ifdef __cplusplus
 }
 #endif

@@ -1,5 +1,13 @@
-#ifndef __APPSVERIFY_H
-#define __APPSVERIFY_H
+/*
+ * brakeCalibrate.h
+ *
+ *  Created on: Jun 12, 2025
+ *      Author: steve
+ */
+
+#ifndef __BRAKECALIBRATE_H_
+#define __BRAKECALIBRATE_H_
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -13,14 +21,13 @@ extern "C" {
 #define ADC_THRESHOLD     100     /* Noise threshold for ADC */
 
 // function prototypes
-void appsVerifyProcess();
+void brakeCalibrate();
 
-extern ADC_HandleTypeDef hadc1;  /* ADC handle from main.c */
-extern osMessageQueueId_t appsQueueHandle;
+extern ADC_HandleTypeDef hadc3;  /* ADC handle from main.c */
 
 #ifdef __cplusplus
 }
 #endif
 
 
-#endif
+#endif /* INC_BRAKECALIBRATE_H_ */

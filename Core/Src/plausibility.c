@@ -10,23 +10,19 @@
 
 // EXTERN DECLARATIONS FOR GLOBAL VARIABLES
 extern volatile float global_accel_position;
+extern volatile float global_brake_position;
 extern volatile float global_torque_command;
-extern volatile bool global_data_updated;
+extern volatile bool global_accel_data_updated;
+extern volatile bool global_brake_data_updated;
 
-// BSPD EXTERN DECLARATIONS
-extern volatile bool global_rtd_button_state;
-extern volatile bool global_rtm_active_state;
-
-// FSAE READY TO DRIVE EXTERN DECLARATION
-extern volatile bool global_ready_to_drive;
-
-#define NUM_POINTS 7
+#define NUM_POINTS 6
 
 // This is basically the look up tables for the pedal map (VERY BASIC), uses linear interpolation for values inbetween ones set in LUT
-float pedal_table[NUM_POINTS] = {0.25f, 0.35f, 0.5f, 0.65f, 0.75f, 0.95f, 1.0f};
-float torque_table[NUM_POINTS] = {0.0f, 15.0f, 25.0f, 30.0f, 65.0f, 75.0f, 75.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
+float pedal_table[NUM_POINTS] = {0.15f, 0.35f, 0.5f, 0.65f, 0.75f, 0.95f};
+float torque_table[NUM_POINTS] = {0.0f, 15.0f, 25.0f, 30.0f, 65.0f, 75.0f}; // Purposefully letting it go only up to 12 Nm to see if it works first
 
 float accel;
+float brake;
 float torque;
 
 extern ADC_HandleTypeDef hadc1;
@@ -42,48 +38,50 @@ extern uint32_t brakesConverted;
 extern osMessageQueueId_t torqueQueueHandle;
 extern osMessageQueueId_t appsQueueHandle;
 
+extern bool brakeTrigger;
 
-float BrakePos() {
-	// Fixed: Read brake sensors properly
-	uint32_t brakeRaw1_local = 0;
-	uint32_t brakeRaw2_local = 0;
-	
-	if (HAL_ADC_PollForConversion(&hadc1, 5) == HAL_OK) {
-		brakeRaw1_local = HAL_ADC_GetValue(&hadc1);
-	}
-	else {
-		// throw fault - could set a brake fault flag here
-		return 0.0f;  // Safe default
-	}
-	
-	if (HAL_ADC_PollForConversion(&hadc1, 6) == HAL_OK) {
-		brakeRaw2_local = HAL_ADC_GetValue(&hadc1);
-	}
-	else {
-		// throw fault - could set a brake fault flag here
-		return 0.0f;  // Safe default
-	}
 
-	// Check if calibration data is valid
-	if (brakesRaw1Max == brakesRaw1Min || brakesRaw2Max == brakesRaw2Min) {
-		// Not calibrated yet or invalid calibration
-		return 0.0f;  // Safe default
-	}
-
-	// Calculate brake position as percentage
-	float percent1 = (float)(brakeRaw1_local - brakesRaw1Min) / (float)(brakesRaw1Max - brakesRaw1Min);
-	float percent2 = (float)(brakeRaw2_local - brakesRaw2Min) / (float)(brakesRaw2Max - brakesRaw2Min);
-
-	// Clamp to valid range
-	if (percent1 < 0.0f) percent1 = 0.0f;
-	if (percent1 > 1.0f) percent1 = 1.0f;
-	if (percent2 < 0.0f) percent2 = 0.0f;
-	if (percent2 > 1.0f) percent2 = 1.0f;
-
-	// Return average of both sensors
-	float percentAvg = (percent1 + percent2) / 2.0f;
-	return percentAvg;
-}
+//float BrakePos() {
+//	// Fixed: Read brake sensors properly
+//	uint32_t brakeRaw1_local = 0;
+//	uint32_t brakeRaw2_local = 0;
+//
+//	if (HAL_ADC_PollForConversion(&hadc1, 5) == HAL_OK) {
+//		brakeRaw1_local = HAL_ADC_GetValue(&hadc1);
+//	}
+//	else {
+//		// throw fault - could set a brake fault flag here
+//		return 0.0f;  // Safe default
+//	}
+//
+//	if (HAL_ADC_PollForConversion(&hadc1, 6) == HAL_OK) {
+//		brakeRaw2_local = HAL_ADC_GetValue(&hadc1);
+//	}
+//	else {
+//		// throw fault - could set a brake fault flag here
+//		return 0.0f;  // Safe default
+//	}
+//
+//	// Check if calibration data is valid
+//	if (brakesRaw1Max == brakesRaw1Min || brakesRaw2Max == brakesRaw2Min) {
+//		// Not calibrated yet or invalid calibration
+//		return 0.0f;  // Safe default
+//	}
+//
+//	// Calculate brake position as percentage
+//	float percent1 = (float)(brakeRaw1_local - brakesRaw1Min) / (float)(brakesRaw1Max - brakesRaw1Min);
+//	float percent2 = (float)(brakeRaw2_local - brakesRaw2Min) / (float)(brakesRaw2Max - brakesRaw2Min);
+//
+//	// Clamp to valid range
+//	if (percent1 < 0.0f) percent1 = 0.0f;
+//	if (percent1 > 1.0f) percent1 = 1.0f;
+//	if (percent2 < 0.0f) percent2 = 0.0f;
+//	if (percent2 > 1.0f) percent2 = 1.0f;
+//
+//	// Return average of both sensors
+//	float percentAvg = (percent1 + percent2) / 2.0f;
+//	return percentAvg;
+//}
 
 /*
  * Plausibility Check:
@@ -94,25 +92,26 @@ bool PlausibilityCheck(float accel, float brake) {
 
 	// Check if both pedals are pressed simultaneously (original safety check)
 	if (accel > 0.05 && brake > 0.05) {
-		// Disable inverter for safety
-		VCU_DisableInverter();
-		return false;
-	}
-	
-	// FSAE Ready to Drive Check: Ready to Drive must be active for inverter operation
-	if (!global_ready_to_drive) {
-		// Ready to Drive not active - disable inverter
-		VCU_DisableInverter();
+		// disable the inverter flag
+//		inverterFault = 1;
 		return false;
 	}
 
 	else {
-		// All plausibility checks passed - enable inverter
-		VCU_EnableInverter();
+		// continue
+		inverterFault = 0;
 		return true;
 	}
 
 }
+
+
+/*
+ *
+ * Over 25% Check
+ *
+ */
+
 
 /*
  * GetTorqueFromPedal:
@@ -153,26 +152,13 @@ int MapTorque() {
 
     // Read from global variable instead of queue
     accel = global_accel_position;
+    brake = global_brake_position;
     
-    // Reset the update flag (optional - can be used for detecting new data)
-    global_data_updated = false;
-    
-    // Get brake position
-    float brake = BrakePos();
+    // Reset the update flags (optional - can be used for detecting new data)
+    global_accel_data_updated = false;
+    global_brake_data_updated = false;
 
-    // Perform plausibility check (includes BSPD safety checks)
-    bool plausibilityPassed = PlausibilityCheck(accel, brake);
-    
-    float torque = 0.0f;
-    
-    if (plausibilityPassed) {
-        // All safety checks passed - calculate torque
-        torque = getTorqueFromPedal(accel);
-    }
-    else {
-        // Safety check failed - set torque to zero
-        torque = 0.0f;
-    }
+    float torque = getTorqueFromPedal(accel);
 
     // Store torque in global variable instead of queue
     global_torque_command = torque;
