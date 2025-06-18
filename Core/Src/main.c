@@ -20,6 +20,7 @@
 #include "main.h"
 #include "string.h"
 #include "cmsis_os.h"
+#include "ready.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -110,6 +111,13 @@ const osThreadAttr_t PedalCalibratio_attributes = {
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for readyTask */
+osThreadId_t readyTaskHandle;
+const osThreadAttr_t readyTask_attributes = {
+  .name = "readyTask",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* Definitions for ADCDataReady */
 osSemaphoreId_t ADCDataReadyHandle;
 const osSemaphoreAttr_t ADCDataReady_attributes = {
@@ -164,6 +172,7 @@ void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
 void BrakesVerifyStart(void *argument);
 void PedalCalStart(void *argument);
+void readyTaskStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -257,6 +266,9 @@ int main(void)
 
   /* creation of PedalCalibratio */
   PedalCalibratioHandle = osThreadNew(PedalCalStart, NULL, &PedalCalibratio_attributes);
+
+  /* creation of readyTask */
+  readyTaskHandle = osThreadNew(readyTaskStart, NULL, &readyTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -812,6 +824,7 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
@@ -828,6 +841,12 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : PE4 PE6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : USER_Btn_Pin */
   GPIO_InitStruct.Pin = USER_Btn_Pin;
@@ -960,6 +979,26 @@ void PedalCalStart(void *argument)
 //	osDelay(1);
 	vTaskDelete(NULL);
   /* USER CODE END PedalCalStart */
+}
+
+/* USER CODE BEGIN Header_readyTaskStart */
+/**
+* @brief Function implementing the readyTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_readyTaskStart */
+void readyTaskStart(void *argument)
+{
+  /* USER CODE BEGIN readyTaskStart */
+  readyInit();
+  /* Infinite loop */
+  for(;;)
+  {
+    readyCheck();
+    osDelay(1);
+  }
+  /* USER CODE END readyTaskStart */
 }
 
 /**
