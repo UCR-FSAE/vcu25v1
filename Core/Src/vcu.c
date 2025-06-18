@@ -182,16 +182,8 @@ static void VCU_TransmitCANMessage(uint16_t torque, uint8_t direction, uint8_t i
     
     
     // Try to abort and retry once
-    if (HAL_CAN_AbortTxRequest(&hcan1, txMailbox) != HAL_OK) {
-      Error_Handler();
-    }
+    if (HAL_CAN_AbortTxRequest(&hcan1, txMailbox) != HAL_OK) { Error_Handler(); }
   }
-//  else {
-//     HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
-//     HAL_Delay(10);
-//     HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
-//     HAL_Delay(10);
-//  }
 }
 
 /**
@@ -206,11 +198,6 @@ void VCU_EnableInverter(void)
   VCU_TransmitCANMessage(0, VCU_DIRECTION_FORWARD, VCU_INVERTER_ENABLE);
 
   /* Visual indication - could toggle an LED here */
-  // DISABLED: LED debugging moved to ADC verify task only
-  // HAL_GPIO_TogglePin(GPIOB, 7);
-  // HAL_Delay(10);
-  // HAL_GPIO_TogglePin(GPIOB, 7);
-  // HAL_Delay(10);
 }
 
 /**
