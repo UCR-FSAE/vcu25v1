@@ -41,49 +41,6 @@ extern osMessageQueueId_t appsQueueHandle;
 
 extern bool brakeTrigger;
 
-
-//float BrakePos() {
-//	// Fixed: Read brake sensors properly
-//	uint32_t brakeRaw1_local = 0;
-//	uint32_t brakeRaw2_local = 0;
-//
-//	if (HAL_ADC_PollForConversion(&hadc1, 5) == HAL_OK) {
-//		brakeRaw1_local = HAL_ADC_GetValue(&hadc1);
-//	}
-//	else {
-//		// throw fault - could set a brake fault flag here
-//		return 0.0f;  // Safe default
-//	}
-//
-//	if (HAL_ADC_PollForConversion(&hadc1, 6) == HAL_OK) {
-//		brakeRaw2_local = HAL_ADC_GetValue(&hadc1);
-//	}
-//	else {
-//		// throw fault - could set a brake fault flag here
-//		return 0.0f;  // Safe default
-//	}
-//
-//	// Check if calibration data is valid
-//	if (brakesRaw1Max == brakesRaw1Min || brakesRaw2Max == brakesRaw2Min) {
-//		// Not calibrated yet or invalid calibration
-//		return 0.0f;  // Safe default
-//	}
-//
-//	// Calculate brake position as percentage
-//	float percent1 = (float)(brakeRaw1_local - brakesRaw1Min) / (float)(brakesRaw1Max - brakesRaw1Min);
-//	float percent2 = (float)(brakeRaw2_local - brakesRaw2Min) / (float)(brakesRaw2Max - brakesRaw2Min);
-//
-//	// Clamp to valid range
-//	if (percent1 < 0.0f) percent1 = 0.0f;
-//	if (percent1 > 1.0f) percent1 = 1.0f;
-//	if (percent2 < 0.0f) percent2 = 0.0f;
-//	if (percent2 > 1.0f) percent2 = 1.0f;
-//
-//	// Return average of both sensors
-//	float percentAvg = (percent1 + percent2) / 2.0f;
-//	return percentAvg;
-//}
-
 /*
  * Plausibility Check:
  * Looks at two pedal positions and if both abosve 5%, then return 0, else return 1
@@ -92,11 +49,10 @@ bool PlausibilityCheck(float accel, float brake) {
 
 	if (accel > 0.05 && brake > 0.05) {
 		// disable the inverter flag
-//		inverterFault = 1;
+		inverterFault = 1;
 		global_plausibility_check = false;	//have fault
 		return false;
 	}
-
 	else {
 		// continue
 		inverterFault = 0;
@@ -131,12 +87,10 @@ float getTorqueFromPedal(float pedal_position) {
             float y0 = torque_table[i];
             float y1 = torque_table[i + 1];
 
-            // Linear interpolation
             return y0 + (pedal_position - x0) * (y1 - y0) / (x1 - x0);
         }
     }
 
-    // Should not reach here, throw error if you do
     return 0.0f;
 }
 
@@ -148,21 +102,19 @@ float getTorqueFromPedal(float pedal_position) {
  */
 
 int MapTorque() {
-    static uint32_t counter = 0;
-    counter++;
 
-    // Read from global variable instead of queue
     accel = global_accel_position;
     brake = global_brake_position;
     
-    // Reset the update flag (optional - can be used for detecting new data)
+    // reset flags
     global_accel_data_updated = false;
     global_brake_data_updated = false;
 
     if (brake >= 0.3) { HAL_GPIO_WritePin(GPIOB, LD3_Pin, SET);
         // trigger brake light
         brakeTrigger = true;
-        HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, SET)
+        HAL_GPIO_WritePin(GPIOB, LD3_Pin, SET);
+        HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, SET);
 
     }
     else {
@@ -170,11 +122,8 @@ int MapTorque() {
         HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, RESET);
     }
 
-    //check plausibility before updating torque
-    // this will cause issue, fix later
-    //float torque = PlausibilityCheck(accel, brake) ? getTorqueFromPedal(accel) : 0; //get torque if true set as 0 if false
+
     float torque = getTorqueFromPedal(accel);
-    // Store torque in global variable instead of queue
     global_torque_command = torque;
 
     return (int)torque;
