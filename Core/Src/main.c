@@ -945,9 +945,9 @@ void PedalCalStart(void *argument)
 {
   /* USER CODE BEGIN PedalCalStart */
 	appsCalibrate();
-	osDelay(1);
+//	osDelay(1);
 	brakeCalibrate();
-	osDelay(1);
+//	osDelay(1);
 	vTaskDelete(NULL);
   /* USER CODE END PedalCalStart */
 }

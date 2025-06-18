@@ -58,7 +58,7 @@ void brakeVerifyProcess(void) {
 
 	// Clamp to valid range
 	if (percent1 < 0.0f) percent1 = 0.0f;
-	if (percent1 > 1.0f) percent1 = 1.0f;
+	if (percent1 > 1.0f) percent1 = 0.0f;
 
 	global_brake_position = percent1;
 	global_brake_data_updated = true;
