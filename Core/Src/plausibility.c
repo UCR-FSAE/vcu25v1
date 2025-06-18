@@ -159,8 +159,16 @@ int MapTorque() {
     global_accel_data_updated = false;
     global_brake_data_updated = false;
 
-    if (brake >= 30.0) { HAL_GPIO_WritePin(GPIOB, LD3_Pin, SET); }
-    else { HAL_GPIO_WritePin(GPIOB, LD3_Pin, RESET); }
+    if (brake >= 30.0) { HAL_GPIO_WritePin(GPIOB, LD3_Pin, SET);
+        // trigger brake light
+        brakeTrigger = true;
+        HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, SET)
+
+    }
+    else {
+    	HAL_GPIO_WritePin(GPIOB, LD3_Pin, RESET);
+        HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, RESET);
+    }
 
     //check plausibility before updating torque
     // this will cause issue, fix later
