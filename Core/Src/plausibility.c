@@ -59,7 +59,6 @@ bool PlausibilityCheck(float accel, float brake) {
 		global_plausibility_check = true;	//no fault
 		return true;
 	}
-
 }
 
 
@@ -118,6 +117,7 @@ int MapTorque() {
 
     }
     else {
+    	brakeTrigger = false;
     	HAL_GPIO_WritePin(GPIOB, LD3_Pin, RESET);
         HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, RESET);
     }

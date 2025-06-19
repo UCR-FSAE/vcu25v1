@@ -76,14 +76,7 @@ void VCU_Init(void)
   * @retval None
   */
 void VCU_Process(void) {
-//	if (global_brake_position >= 30) {
-//		VCU_DisableInverter();
-//	}
-//	else {
-//		VCU_DisableInverter();
-//		VCU_EnableInverter();
-		VCU_ProcessAnalogInputs();
-//	}
+	if ( currentFault == false ) { VCU_ProcessAnalogInputs(); }
 }
 
 /**

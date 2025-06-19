@@ -36,10 +36,6 @@ void appsCalibrate(void) {
 	txData[6] = 0;
 	txData[7] = 0;
 
-	// read accelerator pedal press
-//	HAL_GPIO_TogglePin(GPIOB, 0);
-	//	HAL_Delay(100);
-
 	appsRaw1Min = 0xFFFF;
 	appsRaw2Min = 0xFFFF;
 
@@ -50,8 +46,6 @@ void appsCalibrate(void) {
 	HAL_GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
 
-
-
 	// send begin max calibration
 	// sends a calibration message to the dashboard for screen toggle
 	if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox) != HAL_OK) {
@@ -59,7 +53,6 @@ void appsCalibrate(void) {
 	}
 
 	HAL_GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_SET);
-
 
 	uint32_t t0 = HAL_GetTick(); // ms since power-up
 	// for 3000 ms window
@@ -82,8 +75,6 @@ void appsCalibrate(void) {
 			v1 = 0; // Indicate error
 			v2 = 0; // Indicate error
 			HAL_ADC_Stop(&hadc1); // Stop the ADC if it timed out or had an error
-			// Optionally, break the loop:
-			// break;
 		}
 		HAL_Delay(10); // Adjust this delay to control the sampling rate during calibration.
 	}

@@ -43,6 +43,7 @@ extern "C" {
 #include "brakeVerify.h"
 #include "brakeCalibrate.h"
 #include "plausibility.h"
+#include "inverterVerify.h"
 #include "task.h"          // For TaskHandle_t
 #include "semphr.h"        // For SemaphoreHandle_t
 /* USER CODE END Includes */

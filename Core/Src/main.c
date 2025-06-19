@@ -20,7 +20,6 @@
 #include "main.h"
 #include "string.h"
 #include "cmsis_os.h"
-#include "ready.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -116,7 +115,14 @@ osThreadId_t readyTaskHandle;
 const osThreadAttr_t readyTask_attributes = {
   .name = "readyTask",
   .stack_size = 384 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
+/* Definitions for inverterVerify */
+osThreadId_t inverterVerifyHandle;
+const osThreadAttr_t inverterVerify_attributes = {
+  .name = "inverterVerify",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal,
 };
 /* Definitions for ADCDataReady */
 osSemaphoreId_t ADCDataReadyHandle;
@@ -143,6 +149,7 @@ volatile uint32_t adcResults[ADC_NUM_CHANNELS]; // Use volatile because DMA writ
 bool pedalFault = 0;
 bool inverterFault = 0;
 bool brakeTrigger = 0;
+bool currentFault = 0;
 
 // NEW GLOBAL VARIABLES FOR TASK COMMUNICATION (replacing queues)
 volatile float global_accel_position = 0.0f;    // Shared between appsVerify and plausibility (0.0-1.0 range)
@@ -173,6 +180,7 @@ void AppsVerifyStart(void *argument);
 void BrakesVerifyStart(void *argument);
 void PedalCalStart(void *argument);
 void readyTaskStart(void *argument);
+void inverterVerifyStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -269,6 +277,9 @@ int main(void)
 
   /* creation of readyTask */
   readyTaskHandle = osThreadNew(readyTaskStart, NULL, &readyTask_attributes);
+
+  /* creation of inverterVerify */
+  inverterVerifyHandle = osThreadNew(inverterVerifyStart, NULL, &inverterVerify_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -571,13 +582,13 @@ static void MX_CAN1_Init(void)
   canFilter.FilterActivation = CAN_FILTER_ENABLE;
   canFilter.FilterBank = 0;
   canFilter.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  canFilter.FilterIdHigh = 0x0000;
+  canFilter.FilterIdHigh = 0x0A6 << 5;  // ID 0x0A6 shifted left by 5 bits for 32-bit mode
   canFilter.FilterIdLow = 0x0000;
-  canFilter.FilterMaskIdHigh = 0x0000;
+  canFilter.FilterMaskIdHigh = 0x7FF << 5;  // Full mask for 11-bit ID (0x7FF << 5)
   canFilter.FilterMaskIdLow = 0x0000;
   canFilter.FilterMode = CAN_FILTERMODE_IDMASK;
   canFilter.FilterScale = CAN_FILTERSCALE_32BIT;
-  canFilter.SlaveStartFilterBank = 14;  // For CAN2 - not used here but required
+  canFilter.SlaveStartFilterBank = 14;
 
   if (HAL_CAN_ConfigFilter(&hcan1, &canFilter) != HAL_OK) {
     Error_Handler();
@@ -999,6 +1010,25 @@ void readyTaskStart(void *argument)
     osDelay(1);
   }
   /* USER CODE END readyTaskStart */
+}
+
+/* USER CODE BEGIN Header_inverterVerifyStart */
+/**
+* @brief Function implementing the inverterVerify thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_inverterVerifyStart */
+void inverterVerifyStart(void *argument)
+{
+  /* USER CODE BEGIN inverterVerifyStart */
+  /* Infinite loop */
+  for(;;)
+  {
+	inverterVerification();
+	osDelay(1);
+  }
+  /* USER CODE END inverterVerifyStart */
 }
 
 /**
