@@ -36,8 +36,9 @@ extern CAN_HandleTypeDef hcan1;  /* CAN handle from main.c */
 extern CAN_HandleTypeDef hcan2;
 
 extern osMessageQueueId_t torqueQueueHandle;
+extern bool brakeTrigger;
 
-
+extern volatile float global_plausibility_check;
 extern volatile float global_brake_position;
 
 // pedal input
@@ -76,7 +77,22 @@ void VCU_Init(void)
   * @retval None
   */
 void VCU_Process(void) {
-	if ( currentFault == false ) { VCU_ProcessAnalogInputs(); }
+	if ( currentFault == true) { HAL_GPIO_WritePin(GPIOB, LD1_Pin, SET); }
+	else { HAL_GPIO_WritePin(GPIOB, LD1_Pin, RESET); }
+
+	if ( global_plausibility_check == true ) { HAL_GPIO_WritePin(GPIOB, LD2_Pin, SET); }
+	else { HAL_GPIO_WritePin(GPIOB, LD2_Pin, RESET); }
+
+	if ( brakeTrigger == true ) {
+		HAL_GPIO_WritePin(GPIOB, LD3_Pin, SET);
+		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, SET);
+	}
+	else {
+		HAL_GPIO_WritePin(GPIOB, LD3_Pin, RESET);
+		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, RESET);
+	}
+
+	if ( currentFault == false && global_plausibility_check == false) { VCU_ProcessAnalogInputs(); }
 }
 
 /**

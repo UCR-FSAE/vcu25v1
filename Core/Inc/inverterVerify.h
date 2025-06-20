@@ -11,6 +11,7 @@
 #include "main.h"
 
 extern bool currentFault;
+extern CAN_HandleTypeDef hcan1;
 
 void inverterVerification(void);
 

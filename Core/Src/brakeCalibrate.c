@@ -117,7 +117,9 @@ void brakeCalibrate(void) {
 
 
     HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
+    HAL_Delay(10);
 
 	txData[0] = 1;
 	txData[1] = 0;
