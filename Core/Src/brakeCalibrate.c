@@ -65,22 +65,16 @@ void brakeCalibrate(void) {
 	uint32_t t0 = HAL_GetTick(); // ms since power-up
 	// for 3000 ms window
 	while (HAL_GetTick() - t0 < 3000) {
-		HAL_ADC_Stop(&hadc3); // Stop any ongoing conversion before starting a new sequence
+		HAL_ADC_Stop(&hadc3);
+		if (HAL_ADC_Start(&hadc3) != HAL_OK) { Error_Handler(); }
 
-		if (HAL_ADC_Start(&hadc3) != HAL_OK) {
-			// Handle error - e.g., call Error_Handler(), perhaps break the loop
-			Error_Handler();
-			break; // Exit calibration loop on error
-		}
-
-		if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) { // 10ms timeout should be ample
-			vb1 = HAL_ADC_GetValue(&hadc3); // Get value for Rank 1 (ADC_CHANNEL_?)
-
+		if (HAL_ADC_PollForConversion(&hadc3, 10) == HAL_OK) {
+			vb1 = HAL_ADC_GetValue(&hadc3);
 			if (vb1 > brakesRaw1Max) brakesRaw1Max = vb1;
 		}
 		else {
 			vb1 = 0; // Indicate error
-			HAL_ADC_Stop(&hadc3); // Stop the ADC if it timed out or had an error
+			HAL_ADC_Stop(&hadc3);
 		}
 		HAL_Delay(10);
 	}
@@ -95,13 +89,6 @@ void brakeCalibrate(void) {
 	if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox) != HAL_OK) {
 		if (HAL_CAN_AbortTxRequest(&hcan1, txMailbox) != HAL_OK) { Error_Handler(); }
 	}
-//	else {
-//		HAL_GPIO_TogglePin(GPIOB, 14);
-//		HAL_Delay(10);
-//		HAL_GPIO_TogglePin(GPIOB, 14);
-//	}
-
-//	HAL_GPIO_TogglePin(GPIOB, LD3_Pin);
 
 	t0 = HAL_GetTick();
 	while (HAL_GetTick() - t0 < 3000) {
@@ -130,7 +117,9 @@ void brakeCalibrate(void) {
 
 
     HAL_GPIO_WritePin(GPIOB, LD3_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, LD1_Pin, GPIO_PIN_RESET);
+    HAL_Delay(10);
 
 	txData[0] = 1;
 	txData[1] = 0;
@@ -139,11 +128,6 @@ void brakeCalibrate(void) {
 	if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, txData, &txMailbox) != HAL_OK) {
 		if (HAL_CAN_AbortTxRequest(&hcan1, txMailbox) != HAL_OK) { Error_Handler(); }
 	}
-//	else {
-//		HAL_GPIO_TogglePin(GPIOB, 14);
-//		HAL_Delay(10);
-//		HAL_GPIO_TogglePin(GPIOB, 14);
-//	}
 
 	return;
 }

@@ -110,6 +110,20 @@ const osThreadAttr_t PedalCalibratio_attributes = {
   .stack_size = 384 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for readyTask */
+osThreadId_t readyTaskHandle;
+const osThreadAttr_t readyTask_attributes = {
+  .name = "readyTask",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
+/* Definitions for inverterVerify */
+osThreadId_t inverterVerifyHandle;
+const osThreadAttr_t inverterVerify_attributes = {
+  .name = "inverterVerify",
+  .stack_size = 384 * 4,
+  .priority = (osPriority_t) osPriorityAboveNormal,
+};
 /* Definitions for ADCDataReady */
 osSemaphoreId_t ADCDataReadyHandle;
 const osSemaphoreAttr_t ADCDataReady_attributes = {
@@ -135,6 +149,7 @@ volatile uint32_t adcResults[ADC_NUM_CHANNELS]; // Use volatile because DMA writ
 bool pedalFault = 0;
 bool inverterFault = 0;
 bool brakeTrigger = 0;
+bool currentFault = 0;
 
 // NEW GLOBAL VARIABLES FOR TASK COMMUNICATION (replacing queues)
 volatile float global_accel_position = 0.0f;    // Shared between appsVerify and plausibility (0.0-1.0 range)
@@ -164,6 +179,8 @@ void PlausibilityStart(void *argument);
 void AppsVerifyStart(void *argument);
 void BrakesVerifyStart(void *argument);
 void PedalCalStart(void *argument);
+void readyTaskStart(void *argument);
+void inverterVerifyStart(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -257,6 +274,12 @@ int main(void)
 
   /* creation of PedalCalibratio */
   PedalCalibratioHandle = osThreadNew(PedalCalStart, NULL, &PedalCalibratio_attributes);
+
+  /* creation of readyTask */
+  readyTaskHandle = osThreadNew(readyTaskStart, NULL, &readyTask_attributes);
+
+  /* creation of inverterVerify */
+  inverterVerifyHandle = osThreadNew(inverterVerifyStart, NULL, &inverterVerify_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -559,13 +582,13 @@ static void MX_CAN1_Init(void)
   canFilter.FilterActivation = CAN_FILTER_ENABLE;
   canFilter.FilterBank = 0;
   canFilter.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  canFilter.FilterIdHigh = 0x0000;
+  canFilter.FilterIdHigh = 0x0A6 << 5;  // ID 0x0A6 shifted left by 5 bits for 32-bit mode
   canFilter.FilterIdLow = 0x0000;
-  canFilter.FilterMaskIdHigh = 0x0000;
+  canFilter.FilterMaskIdHigh = 0x7FF << 5;  // Full mask for 11-bit ID (0x7FF << 5)
   canFilter.FilterMaskIdLow = 0x0000;
   canFilter.FilterMode = CAN_FILTERMODE_IDMASK;
   canFilter.FilterScale = CAN_FILTERSCALE_32BIT;
-  canFilter.SlaveStartFilterBank = 14;  // For CAN2 - not used here but required
+  canFilter.SlaveStartFilterBank = 14;
 
   if (HAL_CAN_ConfigFilter(&hcan1, &canFilter) != HAL_OK) {
     Error_Handler();
@@ -812,6 +835,7 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
@@ -821,6 +845,9 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOG_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_5, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -828,6 +855,19 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : PE4 PE6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PE5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : USER_Btn_Pin */
   GPIO_InitStruct.Pin = USER_Btn_Pin;
@@ -955,11 +995,50 @@ void PedalCalStart(void *argument)
 {
   /* USER CODE BEGIN PedalCalStart */
 	appsCalibrate();
-//	osDelay(1);
+
 	brakeCalibrate();
-//	osDelay(1);
+	osDelay(1);
 	vTaskDelete(NULL);
   /* USER CODE END PedalCalStart */
+}
+
+/* USER CODE BEGIN Header_readyTaskStart */
+/**
+* @brief Function implementing the readyTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_readyTaskStart */
+void readyTaskStart(void *argument)
+{
+  /* USER CODE BEGIN readyTaskStart */
+  readyInit();
+  /* Infinite loop */
+  for(;;)
+  {
+    readyCheck();
+    osDelay(1);
+  }
+  /* USER CODE END readyTaskStart */
+}
+
+/* USER CODE BEGIN Header_inverterVerifyStart */
+/**
+* @brief Function implementing the inverterVerify thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_inverterVerifyStart */
+void inverterVerifyStart(void *argument)
+{
+  /* USER CODE BEGIN inverterVerifyStart */
+  /* Infinite loop */
+  for(;;)
+  {
+	inverterVerification();
+	osDelay(1);
+  }
+  /* USER CODE END inverterVerifyStart */
 }
 
 /**

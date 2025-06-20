@@ -41,10 +41,10 @@ void appsVerifyProcess(void) {
     if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
         appsRaw1 = HAL_ADC_GetValue(&hadc1);
         appsRaw2 = HAL_ADC_GetValue(&hadc1);
-        HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
-        HAL_Delay(10);
-        HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
-        HAL_Delay(10);
+//        HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
+//        HAL_Delay(10);
+//        HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
+//        HAL_Delay(10);
     }
     else {
         appsRaw1 = 0;
@@ -77,7 +77,7 @@ void appsVerifyProcess(void) {
         }
         else if ((osKernelGetTickCount() - mismatchStart) >= 100) { // 100ms in ticks
 //            pedalFault = true;
-        	HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
+//        	HAL_GPIO_TogglePin(GPIOB, LD1_Pin);
         }
     }
     else {
@@ -87,6 +87,11 @@ void appsVerifyProcess(void) {
     float average = (appsConverted1 + appsConverted2) / 2.0f;
     global_accel_position = average;  // 0.0-1.0 range
     global_accel_data_updated = true;
+
+//    HAL_GPIO_TogglePin(GPIOB, LD3_Pin);
+//    HAL_Delay(10);
+//    HAL_GPIO_TogglePin(GPIOB, LD3_Pin);
+//    HAL_Delay(10);
 
 }
 

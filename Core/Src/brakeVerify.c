@@ -39,19 +39,6 @@ void brakeVerifyProcess(void) {
 		brakeRaw1 = 0;
 		HAL_ADC_Stop(&hadc3); // stop the ADC if it timed out due to error
 	}
-	// Check if calibration data is valid
-	if (brakesRaw1Max == brakesRaw1Min) {
-		// Not calibrated yet or invalid calibration
-		brakeRaw1 = 0;
-
-	}
-
-	//One more check if ADC outside of range
-	if (brakeRaw1 > ADC_MAX_VALUE || brakeRaw1 < brakesRaw1Min) {
-		// outside of range so set to 0 and send fault
-		brakeRaw1 = 0;
-		global_brake_isShort = true;
-	}
 
 	// Calculate brake position as percentage
 	float percent1 = (float)(brakeRaw1 - brakesRaw1Min) / (float)(brakesRaw1Max - brakesRaw1Min);
@@ -62,5 +49,4 @@ void brakeVerifyProcess(void) {
 
 	global_brake_position = percent1;
 	global_brake_data_updated = true;
-
 }

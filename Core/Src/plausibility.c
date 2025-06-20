@@ -47,7 +47,7 @@ extern bool brakeTrigger;
  */
 bool PlausibilityCheck(float accel, float brake) {
 
-	if (accel > 0.05 && brake > 0.05) {
+	if (accel > 0.05 && brake > 0.0) {
 		// disable the inverter flag
 		inverterFault = 1;
 		global_plausibility_check = false;	//have fault
@@ -55,11 +55,11 @@ bool PlausibilityCheck(float accel, float brake) {
 	}
 	else {
 		// continue
-		inverterFault = 0;
+//		inverterFault = 0;
+
 		global_plausibility_check = true;	//no fault
 		return true;
 	}
-
 }
 
 
@@ -110,21 +110,32 @@ int MapTorque() {
     global_accel_data_updated = false;
     global_brake_data_updated = false;
 
-    if (brake >= 0.3) { HAL_GPIO_WritePin(GPIOB, LD3_Pin, SET);
+    if (brake >= 0.3) {
         // trigger brake light
         brakeTrigger = true;
-        HAL_GPIO_WritePin(GPIOB, LD3_Pin, SET);
-        HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, SET);
+//        HAL_GPIO_WritePin(GPIOB, LD3_Pin, SET);
+//        HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, SET);
 
     }
     else {
-    	HAL_GPIO_WritePin(GPIOB, LD3_Pin, RESET);
-        HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, RESET);
+    	brakeTrigger = false;
+//    	HAL_GPIO_WritePin(GPIOB, LD3_Pin, RESET);
+//        HAL_GPIO_WritePin(GPIOF, GPIO_PIN_7, RESET);
     }
 
+    if (!PlausibilityCheck(accel, brake)) {
+        inverterFault = 1;
+        global_torque_command = 0;
+        HAL_GPIO_WritePin(GPIOB, LD2_Pin, SET);
+        HAL_GPIO_WritePin(GPIOB, LD3_Pin, SET);
+    }
+    else {
+        float torque = getTorqueFromPedal(accel);
+        global_torque_command = torque;
 
-    float torque = getTorqueFromPedal(accel);
-    global_torque_command = torque;
+        return (int)torque;
+    }
 
-    return (int)torque;
+    return 0;
+
 }
